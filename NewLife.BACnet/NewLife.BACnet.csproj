@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1</TargetFrameworks>
-    <AssemblyTitle>加拿大Delta控制</AssemblyTitle>
-    <Description>加拿大Delta控制，BACnet楼宇自动化</Description>
+    <AssemblyTitle>BACnet协议</AssemblyTitle>
+    <Description>BACnet楼宇自动化</Description>
     <Company>新生命开发团队</Company>
     <Copyright>©2002-2022 新生命开发团队</Copyright>
     <VersionPrefix>1.0</VersionPrefix>
@@ -22,9 +22,9 @@
     <Authors>$(Company)</Authors>
     <PackageProjectUrl>https://www.yuque.com/smartstone/nx</PackageProjectUrl>
     <PackageIcon>leaf.png</PackageIcon>
-    <RepositoryUrl>https://github.com/NewLifeX/NewLife.Modbus</RepositoryUrl>
+    <RepositoryUrl>https://github.com/NewLifeX/NewLife.BACnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>物联网;IoT;边缘计算;Edge;新生命团队;NewLife;PLC;$(AssemblyName)</PackageTags>
+    <PackageTags>物联网;IoT;边缘计算;Edge;新生命团队;NewLife;PLC;BACnet;$(AssemblyName)</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
@@ -42,8 +42,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Core" Version="9.0.2022.304" />
-    <PackageReference Include="NewLife.IoT" Version="1.0.2022.314-beta0125" />
+    <PackageReference Include="NewLife.Core" Version="9.0.2022.401" />
+    <PackageReference Include="NewLife.IoT" Version="1.0.2022.402" />
+    <PackageReference Include="Talk.BACnet" Version="1.0.2" />
   </ItemGroup>
 
   <ItemGroup>

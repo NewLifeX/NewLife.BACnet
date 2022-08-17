@@ -1,4 +1,5 @@
-﻿using NewLife.IoT.Drivers;
+﻿using NewLife.IoT;
+using NewLife.IoT.Drivers;
 
 namespace NewLife.BACnet.Drivers;
 
@@ -7,9 +8,12 @@ namespace NewLife.BACnet.Drivers;
 /// </summary>
 public class BACnetNode : INode
 {
-    /// <summary>地址</summary>
-    public String Address { get; set; }
+    /// <summary>驱动</summary>
+    public IDriver Driver { get; set; }
 
-    /// <summary>通道</summary>
-    public IChannel Channel { get; set; }
+    /// <summary>设备</summary>
+    public IDevice Device { get; set; }
+
+    /// <summary>参数</summary>
+    public IDriverParameter Parameter { get; set; }
 }

@@ -24,7 +24,14 @@ public class BACnetDriver : DisposeBase, IDriver
     /// 创建默认参数
     /// </summary>
     /// <returns></returns>
-    public IDriverParameter CreateParameter() => new BACnetParameter();
+    public IDriverParameter GetDefaultParameter() => new BACnetParameter();
+
+    /// <summary>
+    /// 获取默认节点
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public IPoint[] GetDefaultPoints() => null;
 
     /// <summary>
     /// 打开通道。一个BACnet设备可能分为多个通道读取，需要共用Tcp连接，以不同节点区分

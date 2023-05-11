@@ -6,6 +6,7 @@ namespace NewLife.BACnet.Protocols;
 public class BacProperty
 {
     #region 属性
+    /// <summary>对象编号</summary>
     public BacnetObjectId ObjectId { get; set; }
 
     /// <summary>
@@ -30,6 +31,9 @@ public class BacProperty
     #endregion
 
     #region 方法
+    /// <summary>创建属性</summary>
+    /// <param name="bv"></param>
+    /// <returns></returns>
     public static BacProperty Create(BacnetValue bv)
     {
         var ss = ("" + bv.Value).Split(':');
@@ -48,6 +52,9 @@ public class BacProperty
         return bp;
     }
 
+    /// <summary>创建属性</summary>
+    /// <param name="pv"></param>
+    /// <returns></returns>
     public static IEnumerable<BacProperty> Create(BacnetPropertyValue pv)
     {
         if (pv.value == null) yield break;
@@ -59,6 +66,9 @@ public class BacProperty
         }
     }
 
+    /// <summary>创建属性</summary>
+    /// <param name="results"></param>
+    /// <returns></returns>
     public static IEnumerable<BacProperty> Create(IList<BacnetReadAccessResult> results)
     {
         if (results == null) yield break;
@@ -75,6 +85,8 @@ public class BacProperty
         }
     }
 
+    /// <summary>填充</summary>
+    /// <param name="result"></param>
     public void Fill(BacnetReadAccessResult result)
     {
         foreach (var elm in result.values)

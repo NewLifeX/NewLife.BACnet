@@ -1,3 +1,4 @@
+﻿using NewLife.BACnet.Drivers;
 using Xunit;
 
 namespace UnitTest
@@ -7,7 +8,7 @@ namespace UnitTest
         [Fact]
         public void Test1()
         {
-
+            var driver = new BACnetDriver();
         }
     }
 }

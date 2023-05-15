@@ -7,6 +7,7 @@
 ![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/NewLife.BACnet?label=dev%20nuget&logo=nuget)
 
 BACnet楼宇自动化  
+Building Automation Control network  
 
 源码： https://github.com/NewLifeX/NewLife.BACnet  
 Nuget：NewLife.BACnet  

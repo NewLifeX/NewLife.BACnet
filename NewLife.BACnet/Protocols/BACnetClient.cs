@@ -43,36 +43,36 @@ public class BACnetClient
         {
             if (node.Address != null)
             {
-                var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
-                var rs = _client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, 0);
-                if (rs.Value != null)
-                {
-                    var count = rs.ToInt() + 1;
+                //var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
+                //var rs = _client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list);
+                //if (rs)
+                //{
+                //    var count = rs.ToInt() + 1;
 
-                    var bobj = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
+                //    var bobj = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
 
-                    node.Properties.Clear();
-                    var prs = new List<BacnetPropertyReference>();
-                    for (var i = 0; i < count; i++)
-                    {
-                        var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
-                        prs.Add(property);
-                    }
-                    for (var i = 0; i < count;)
-                    {
-                        var batch = prs.Skip(i).Take(16).ToList();
-                        if (batch.Count == 0) break;
+                //    node.Properties.Clear();
+                //    var prs = new List<BacnetPropertyReference>();
+                //    for (var i = 0; i < count; i++)
+                //    {
+                //        var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
+                //        prs.Add(property);
+                //    }
+                //    for (var i = 0; i < count;)
+                //    {
+                //        var batch = prs.Skip(i).Take(16).ToList();
+                //        if (batch.Count == 0) break;
 
-                        var results = _client.ReadPropertyMultipleRequest(node.Address, bobj, batch);
-                        if (results != null)
-                        {
-                            var ps = BacProperty.Create(results);
-                            node.Properties.AddRange(ps);
-                        }
+                //        var results = _client.ReadPropertyMultipleRequest(node.Address, bobj, batch);
+                //        if (results != null)
+                //        {
+                //            var ps = BacProperty.Create(results);
+                //            node.Properties.AddRange(ps);
+                //        }
 
-                        i += batch.Count;
-                    }
-                }
+                //        i += batch.Count;
+                //    }
+                //}
             }
         }
     }
@@ -95,27 +95,27 @@ public class BACnetClient
             new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue)
         };
 
-        var results = new List<BacnetReadAccessResult>();
-        for (var i = 0; i < node.Properties.Count; i++)
-        {
-            var batch = node.Properties.Skip(i).Take(16).ToList();
-            var properties = batch.Select(e => new BacnetReadAccessSpecification(e.ObjectId, rList)).ToList();
-            results.AddRange(_client.ReadPropertyMultipleRequest(node.Address, properties));
-        }
+        //var results = new List<BacnetReadAccessResult>();
+        //for (var i = 0; i < node.Properties.Count; i++)
+        //{
+        //    var batch = node.Properties.Skip(i).Take(16).ToList();
+        //    var properties = batch.Select(e => new BacnetReadAccessSpecification(e.ObjectId, rList)).ToList();
+        //    results.AddRange(_client.ReadPropertyMultipleRequest(node.Address, properties));
+        //}
 
-        foreach (var item in results)
-        {
-            var oid = item.objectIdentifier;
-            var pi = node.Properties.FirstOrDefault(t => t.ObjectId.Instance == oid.Instance && t.ObjectId.Type == oid.Type);
-            if (pi != null)
-            {
-                pi.Fill(item);
+        //foreach (var item in results)
+        //{
+        //    var oid = item.objectIdentifier;
+        //    var pi = node.Properties.FirstOrDefault(t => t.ObjectId.Instance == oid.Instance && t.ObjectId.Type == oid.Type);
+        //    if (pi != null)
+        //    {
+        //        pi.Fill(item);
 
-                var key = $"{pi.ObjectId.Instance}_{(Int32)pi.ObjectId.Type}";
-                var point = points.FirstOrDefault(e => e.Address == key);
-                if (point != null) dic[point.Name] = pi.Value;
-            }
-        }
+        //        var key = $"{pi.ObjectId.Instance}_{(Int32)pi.ObjectId.Type}";
+        //        var point = points.FirstOrDefault(e => e.Address == key);
+        //        if (point != null) dic[point.Name] = pi.Value;
+        //    }
+        //}
 
         return dic;
     }

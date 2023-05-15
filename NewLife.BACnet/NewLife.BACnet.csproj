@@ -36,6 +36,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Transport\BacnetTransportEthernet.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -43,9 +47,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Core" Version="10.3.2023.503" />
+    <PackageReference Include="NewLife.Core" Version="10.3.2023.512-beta1457" />
     <PackageReference Include="NewLife.IoT" Version="1.8.2023.511" />
-    <PackageReference Include="Talk.BACnet" Version="1.0.2" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)'=='net461'">
+    <PackageReference Include="System.IO.Ports" Version="6.0.0" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)'!='net461' and '$(TargetFramework)'!='net45'">
+    <PackageReference Include="System.IO.Ports" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

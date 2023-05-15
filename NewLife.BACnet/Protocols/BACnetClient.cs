@@ -1,5 +1,6 @@
 ﻿using System.IO.BACnet;
 using NewLife.IoT.ThingModels;
+using NewLife.Log;
 using NewLife.Reflection;
 using NewLife.Threading;
 
@@ -9,6 +10,15 @@ namespace NewLife.BACnet.Protocols;
 public class BACnetClient
 {
     #region 属性
+    /// <summary>地址</summary>
+    public String Address { get; set; }
+
+    /// <summary>端口。默认0xBAC0，即47808</summary>
+    public Int32 Port { get; set; } = 0xBAC0;
+
+    /// <summary>设备编号</summary>
+    public Int32 DeviceId { get; set; }
+
     private readonly List<BacNode> _nodes = new();
     private BacnetClient _client;
     #endregion
@@ -17,7 +27,7 @@ public class BACnetClient
     /// <summary>打开连接</summary>
     public void Open()
     {
-        var client = new BacnetClient(new BacnetIpUdpProtocolTransport(47808, false));
+        var client = new BacnetClient(new BacnetIpUdpProtocolTransport(Port, false, false, 1472, Address));
         client.OnIam += OnIam;
 
         client.Start();
@@ -78,6 +88,7 @@ public class BACnetClient
     }
     #endregion
 
+    #region 读写方法
     /// <summary>读取</summary>
     /// <param name="node"></param>
     /// <param name="points"></param>
@@ -150,10 +161,24 @@ public class BACnetClient
         lock (_nodes)
         {
             foreach (var bn in _nodes)
+            {
+                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
                 if (bn.GetAdd(deviceId) != null) return;
+            }
 
             _nodes.Add(new BacNode(addr, deviceId));
         }
 
     }
+    #endregion
+
+    #region 日志
+    /// <summary>日志</summary>
+    public ILog Log { get; set; }
+
+    /// <summary>写日志</summary>
+    /// <param name="format"></param>
+    /// <param name="args"></param>
+    public void WriteLog(String format, params Object[] args) => Log?.Info(format, args);
+    #endregion
 }

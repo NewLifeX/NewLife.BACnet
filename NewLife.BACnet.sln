@@ -14,7 +14,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NewLife.BACnet", "NewLife.BACnet\NewLife.BACnet.csproj", "{C83D59DF-58AA-4ECE-9AAE-0FE618771AEF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTest", "UnitTest\UnitTest.csproj", "{7A1FDA0B-5B02-4B75-8334-87EB9049BDE2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTest", "UnitTest\UnitTest.csproj", "{7A1FDA0B-5B02-4B75-8334-87EB9049BDE2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{0867AED7-81DF-48A3-AD29-B08E66CFA949}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,6 +32,10 @@ Global
 		{7A1FDA0B-5B02-4B75-8334-87EB9049BDE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7A1FDA0B-5B02-4B75-8334-87EB9049BDE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7A1FDA0B-5B02-4B75-8334-87EB9049BDE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0867AED7-81DF-48A3-AD29-B08E66CFA949}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0867AED7-81DF-48A3-AD29-B08E66CFA949}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0867AED7-81DF-48A3-AD29-B08E66CFA949}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0867AED7-81DF-48A3-AD29-B08E66CFA949}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

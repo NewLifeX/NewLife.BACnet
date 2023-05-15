@@ -1,5 +1,8 @@
 ﻿namespace System.IO.BACnet.Serialize;
 
+/// <summary>
+/// Network Protocol Data Unit ，网络协议数据单元
+/// </summary>
 public class NPDU
 {
     public const byte BACNET_PROTOCOL_VERSION = 1;

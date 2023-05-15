@@ -43,7 +43,12 @@ public class BACnetDriver : DriverBase
             {
                 if (_client == null)
                 {
-                    var client = new BACnetClient();
+                    var client = new BACnetClient
+                    {
+                        Address = p.Address,
+                        Port = p.Port,
+                        DeviceId = p.DeviceId
+                    };
 
                     // 外部已指定通道时，打开连接
                     if (device != null) client.Open();

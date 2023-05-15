@@ -1,5 +1,8 @@
 ﻿namespace System.IO.BACnet.Serialize;
 
+/// <summary>
+/// Application Protocol Data Unit，应用协议数据单元
+/// </summary>
 public class APDU
 {
     public static BacnetPduTypes GetDecodedType(byte[] buffer, int offset)

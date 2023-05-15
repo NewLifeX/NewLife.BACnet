@@ -500,7 +500,7 @@ public class BacnetClient : IDisposable
     {
         try
         {
-            Log.Debug("UnconfirmedServiceRequest");
+            Log.Debug("UnconfirmedServiceRequest: {0}", service);
             OnUnconfirmedServiceRequest?.Invoke(this, address, type, service, buffer, offset, length);
             if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_AM && OnIam != null)
             {

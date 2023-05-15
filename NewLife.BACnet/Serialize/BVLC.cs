@@ -27,7 +27,7 @@ public class BVLC
     // If empty it's equal to *.*.*.*, everyone allows
     private readonly List<Regex> _autorizedFdr = new();
 
-    public ILog Log { get; set; }
+    public ILog Log { get; set; } = XTrace.Log;
 
     public BVLC(BacnetIpUdpProtocolTransport transport)
     {

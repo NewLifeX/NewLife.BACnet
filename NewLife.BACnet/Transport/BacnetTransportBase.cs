@@ -4,7 +4,7 @@ namespace System.IO.BACnet;
 
 public abstract class BacnetTransportBase : IBacnetTransport
 {
-    public ILog Log { get; set; }
+    public ILog Log { get; set; } = XTrace.Log;
     public int HeaderLength { get; protected set; }
     public int MaxBufferLength { get; protected set; }
     public BacnetAddressTypes Type { get; protected set; }

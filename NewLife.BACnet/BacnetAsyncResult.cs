@@ -1,22 +1,22 @@
-namespace System.IO.BACnet;
+﻿namespace System.IO.BACnet;
 
 public class BacnetAsyncResult : IAsyncResult, IDisposable
 {
     private BacnetClient _comm;
-    private readonly byte _waitInvokeId;
+    private readonly Byte _waitInvokeId;
     private Exception _error;
-    private readonly byte[] _transmitBuffer;
-    private readonly int _transmitLength;
-    private readonly bool _waitForTransmit;
-    private readonly int _transmitTimeout;
+    private readonly Byte[] _transmitBuffer;
+    private readonly Int32 _transmitLength;
+    private readonly Boolean _waitForTransmit;
+    private readonly Int32 _transmitTimeout;
     private ManualResetEvent _waitHandle;
 
-    public bool Segmented { get; private set; }
-    public byte[] Result { get; private set; }
-    public object AsyncState { get; set; }
-    public bool CompletedSynchronously { get; private set; }
+    public Boolean Segmented { get; private set; }
+    public Byte[] Result { get; private set; }
+    public Object AsyncState { get; set; }
+    public Boolean CompletedSynchronously { get; private set; }
     public WaitHandle AsyncWaitHandle => _waitHandle;
-    public bool IsCompleted => _waitHandle.WaitOne(0);
+    public Boolean IsCompleted => _waitHandle.WaitOne(0);
     public BacnetAddress Address { get; }
 
     public Exception Error
@@ -30,7 +30,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         }
     }
 
-    public BacnetAsyncResult(BacnetClient comm, BacnetAddress adr, byte invokeId, byte[] transmitBuffer, int transmitLength, bool waitForTransmit, int transmitTimeout)
+    public BacnetAsyncResult(BacnetClient comm, BacnetAddress adr, Byte invokeId, Byte[] transmitBuffer, Int32 transmitLength, Boolean waitForTransmit, Int32 transmitTimeout)
     {
         _transmitTimeout = transmitTimeout;
         Address = adr;
@@ -63,7 +63,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         }
     }
 
-    private void OnSegment(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
+    private void OnSegment(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, Byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, Byte sequenceNumber, Byte[] buffer, Int32 offset, Int32 length)
     {
         if (invokeId != _waitInvokeId)
             return;
@@ -72,7 +72,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         _waitHandle.Set();
     }
 
-    private void OnSimpleAck(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, byte[] data, int dataOffset, int dataLength)
+    private void OnSimpleAck(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, Byte invokeId, Byte[] data, Int32 dataOffset, Int32 dataLength)
     {
         if (invokeId != _waitInvokeId)
             return;
@@ -80,7 +80,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         _waitHandle.Set();
     }
 
-    private void OnAbort(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, byte invokeId, BacnetAbortReason reason, byte[] buffer, int offset, int length)
+    private void OnAbort(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, Byte invokeId, BacnetAbortReason reason, Byte[] buffer, Int32 offset, Int32 length)
     {
         if (invokeId != _waitInvokeId)
             return;
@@ -88,7 +88,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         Error = new Exception($"Abort from device, reason: {reason}");
     }
 
-    private void OnReject(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, byte invokeId, BacnetRejectReason reason, byte[] buffer, int offset, int length)
+    private void OnReject(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, Byte invokeId, BacnetRejectReason reason, Byte[] buffer, Int32 offset, Int32 length)
     {
         if (invokeId != _waitInvokeId)
             return;
@@ -96,7 +96,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         Error = new Exception($"Reject from device, reason: {reason}");
     }
 
-    private void OnError(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetErrorClasses errorClass, BacnetErrorCodes errorCode, byte[] buffer, int offset, int length)
+    private void OnError(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, Byte invokeId, BacnetErrorClasses errorClass, BacnetErrorCodes errorCode, Byte[] buffer, Int32 offset, Int32 length)
     {
         if (invokeId != _waitInvokeId)
             return;
@@ -104,13 +104,13 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
         Error = new Exception($"Error from device: {errorClass} - {errorCode}");
     }
 
-    private void OnComplexAck(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, byte[] buffer, int offset, int length)
+    private void OnComplexAck(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, Byte invokeId, Byte[] buffer, Int32 offset, Int32 length)
     {
         if (invokeId != _waitInvokeId)
             return;
 
         Segmented = false;
-        Result = new byte[length];
+        Result = new Byte[length];
 
         if (length > 0)
             Array.Copy(buffer, offset, Result, 0, length);
@@ -122,7 +122,7 @@ public class BacnetAsyncResult : IAsyncResult, IDisposable
     /// <summary>
     /// Will continue waiting until all segments are recieved
     /// </summary>
-    public bool WaitForDone(int timeout)
+    public Boolean WaitForDone(Int32 timeout)
     {
         while (true)
         {

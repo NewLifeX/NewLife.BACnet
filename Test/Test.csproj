@@ -13,4 +13,10 @@
     <ProjectReference Include="..\NewLife.BACnet\NewLife.BACnet.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="DeviceDescriptor.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

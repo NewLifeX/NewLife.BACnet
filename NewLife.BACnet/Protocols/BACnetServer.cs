@@ -1,0 +1,167 @@
+﻿using System.IO.BACnet;
+using System.IO.BACnet.Storage;
+using NewLife.Log;
+
+namespace NewLife.BACnet.Protocols;
+
+/// <summary>BACnet服务端。默认UDP协议</summary>
+public class BACnetServer
+{
+    #region 属性
+    /// <summary>端口。默认0xBAC0，即47808</summary>
+    public Int32 Port { get; set; } = 0xBAC0;
+
+    /// <summary>设备编号</summary>
+    public UInt32 DeviceId { get; set; }
+
+    /// <summary>存储</summary>
+    public DeviceStorage Storage { get; set; }
+
+    /// <summary>存储文件</summary>
+    public String StorageFile { get; set; }
+
+    private readonly List<BacNode> _nodes = new();
+    private BacnetClient _client;
+    #endregion
+
+    #region 方法
+    /// <summary>打开连接</summary>
+    public void Open()
+    {
+        if (!StorageFile.IsNullOrEmpty()) Storage = DeviceStorage.Load(StorageFile);
+
+        var client = new BacnetClient(new BacnetIpUdpProtocolTransport(Port));
+        client.OnWhoIs += OnWhoIs;
+        client.OnIam += OnIam;
+        client.OnReadPropertyRequest += OnReadPropertyRequest;
+        client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
+        client.OnWritePropertyRequest += OnWritePropertyRequest;
+
+        client.Start();
+
+        client.Iam(DeviceId, new BacnetSegmentations());
+
+        _client = client;
+    }
+
+    private void OnWhoIs(BacnetClient sender, BacnetAddress adr, Int32 lowLimit, Int32 highLimit)
+    {
+        if (lowLimit != -1 && DeviceId < lowLimit) return;
+        if (highLimit != -1 && DeviceId > highLimit) return;
+
+        sender.Iam(DeviceId, new BacnetSegmentations());
+    }
+
+    private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
+    {
+        lock (_nodes)
+        {
+            foreach (var bn in _nodes)
+            {
+                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
+                if (bn.GetAdd(deviceId) != null) return;
+            }
+
+            _nodes.Add(new BacNode(addr, deviceId));
+        }
+
+    }
+    #endregion
+
+    #region 读写方法
+    private void OnReadPropertyRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyReference property, BacnetMaxSegments maxSegments)
+    {
+        var storage = Storage;
+        lock (storage)
+        {
+            try
+            {
+                IList<BacnetValue> value;
+                var code = storage.ReadProperty(objectId, (BacnetPropertyIds)property.propertyIdentifier, property.propertyArrayIndex, out value);
+                if (code == DeviceStorage.ErrorCodes.Good)
+                    sender.ReadPropertyResponse(adr, invokeId, sender.GetSegmentBuffer(maxSegments), objectId, property, value);
+                else
+                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+
+    private void OnReadPropertyMultipleRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments maxSegments)
+    {
+        var storage = Storage;
+        lock (storage)
+        {
+            try
+            {
+                IList<BacnetPropertyValue> value;
+                var values = new List<BacnetReadAccessResult>();
+                foreach (var p in properties)
+                {
+                    if (p.propertyReferences.Count == 1 && p.propertyReferences[0].propertyIdentifier == (uint)BacnetPropertyIds.PROP_ALL)
+                    {
+                        if (!storage.ReadPropertyAll(p.objectIdentifier, out value))
+                        {
+                            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_OBJECT, BacnetErrorCodes.ERROR_CODE_UNKNOWN_OBJECT);
+                            return;
+                        }
+                    }
+                    else
+                        storage.ReadPropertyMultiple(p.objectIdentifier, p.propertyReferences, out value);
+                    values.Add(new BacnetReadAccessResult(p.objectIdentifier, value));
+                }
+
+                sender.ReadPropertyMultipleResponse(adr, invokeId, sender.GetSegmentBuffer(maxSegments), values);
+
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+
+    private void OnWritePropertyRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyValue value, BacnetMaxSegments maxSegments)
+    {
+        // only OBJECT_ANALOG_VALUE:0.PROP_PRESENT_VALUE could be write in this sample code
+        if ((objectId.type != BacnetObjectTypes.OBJECT_ANALOG_VALUE) || (objectId.instance != 0) || ((BacnetPropertyIds)value.property.propertyIdentifier != BacnetPropertyIds.PROP_PRESENT_VALUE))
+        {
+            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+            return;
+        }
+
+        var m_storage = Storage;
+        lock (m_storage)
+        {
+            try
+            {
+                var code = m_storage.WriteCommandableProperty(objectId, (BacnetPropertyIds)value.property.propertyIdentifier, value.value[0], value.priority);
+                if (code == DeviceStorage.ErrorCodes.NotForMe)
+                    code = m_storage.WriteProperty(objectId, (BacnetPropertyIds)value.property.propertyIdentifier, value.property.propertyArrayIndex, value.value);
+
+                if (code == DeviceStorage.ErrorCodes.Good)
+                    sender.SimpleAckResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId);
+                else
+                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+    #endregion
+
+    #region 日志
+    /// <summary>日志</summary>
+    public ILog Log { get; set; }
+
+    /// <summary>写日志</summary>
+    /// <param name="format"></param>
+    /// <param name="args"></param>
+    public void WriteLog(String format, params System.Object[] args) => Log?.Info(format, args);
+    #endregion
+}

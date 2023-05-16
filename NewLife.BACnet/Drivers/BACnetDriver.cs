@@ -12,7 +12,7 @@ namespace NewLife.BACnet.Drivers;
 [Driver("BACnet")]
 public class BACnetDriver : DriverBase
 {
-    private BACnetClient _client;
+    private BacClient _client;
     private Int32 _nodes;
 
     #region 构造
@@ -43,7 +43,7 @@ public class BACnetDriver : DriverBase
             {
                 if (_client == null)
                 {
-                    var client = new BACnetClient
+                    var client = new BacClient
                     {
                         Address = p.Address,
                         Port = p.Port,

@@ -3,11 +3,15 @@ using NewLife.BACnet.Protocols;
 using NewLife.Log;
 
 XTrace.UseConsole();
+#if DEBUG
 XTrace.Log.Level = LogLevel.Debug;
+#endif
 
-var server = new BACnetServer
+XTrace.WriteLine("BACnet 测试");
+
+var server = new BacServer
 {
-    DeviceId = 1234,
+    DeviceId = 777,
     StorageFile = "DeviceDescriptor.xml",
 
     Log = XTrace.Log,
@@ -15,7 +19,7 @@ var server = new BACnetServer
 
 server.Open();
 
-var client = new BACnetClient
+var client = new BacClient
 {
     //Address = NetHelper.MyIP() + "",
     //Port = 53817,

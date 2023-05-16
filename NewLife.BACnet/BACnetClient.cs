@@ -158,7 +158,7 @@ public class BacnetClient : IDisposable
     {
         Transport.Start();
         Transport.MessageRecieved += OnRecieve;
-        Log.Info("Started communication");
+        //Log.Info("Started communication");
     }
 
     public delegate void ConfirmedServiceRequestHandler(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, Byte invokeId, Byte[] buffer, Int32 offset, Int32 length);
@@ -500,7 +500,7 @@ public class BacnetClient : IDisposable
     {
         try
         {
-            Log.Debug("UnconfirmedServiceRequest: {0}", service);
+            Log.Debug("<=[{0}]: {1}", address, service);
             OnUnconfirmedServiceRequest?.Invoke(this, address, type, service, buffer, offset, length);
             if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_AM && OnIam != null)
             {

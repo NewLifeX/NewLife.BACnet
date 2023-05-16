@@ -5,11 +5,14 @@ using NewLife.Log;
 namespace NewLife.BACnet.Protocols;
 
 /// <summary>BACnet服务端。默认UDP协议</summary>
-public class BACnetServer
+public class BacServer : DisposeBase
 {
     #region 属性
-    /// <summary>端口。默认0xBAC0，即47808</summary>
+    /// <summary>共享端口。节点在该端口上监听广播数据，多进程共享，默认0xBAC0，即47808</summary>
     public Int32 Port { get; set; } = 0xBAC0;
+
+    /// <summary>传输层</summary>
+    public IBacnetTransport Transport { get; set; }
 
     /// <summary>设备编号</summary>
     public UInt32 DeviceId { get; set; }
@@ -24,21 +27,39 @@ public class BACnetServer
     private BacnetClient _client;
     #endregion
 
+    #region 构造
+    /// <summary>释放资源</summary>
+    /// <param name="disposing"></param>
+    protected override void Dispose(Boolean disposing)
+    {
+        base.Dispose(disposing);
+
+        _client.TryDispose();
+    }
+    #endregion
+
     #region 方法
     /// <summary>打开连接</summary>
     public void Open()
     {
         if (!StorageFile.IsNullOrEmpty()) Storage = DeviceStorage.Load(StorageFile);
 
-        var client = new BacnetClient(new BacnetIpUdpProtocolTransport(Port));
+        Transport ??= new BacnetIpUdpProtocolTransport(Port);
+
+        var client = new BacnetClient(Transport);
         client.OnWhoIs += OnWhoIs;
         client.OnIam += OnIam;
         client.OnReadPropertyRequest += OnReadPropertyRequest;
         client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
         client.OnWritePropertyRequest += OnWritePropertyRequest;
 
+        // 监听端口
         client.Start();
 
+        if (Transport is BacnetIpUdpProtocolTransport udp)
+            WriteLog("本地：{0}", udp.LocalEndPoint);
+
+        // 广播“我是谁”
         client.Iam(DeviceId, new BacnetSegmentations());
 
         _client = client;

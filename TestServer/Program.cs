@@ -1,6 +1,7 @@
 ﻿using System.IO.BACnet;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
+using NewLife.Security;
 using NewLife.Threading;
 
 XTrace.UseConsole();
@@ -8,7 +9,7 @@ XTrace.UseConsole();
 XTrace.Log.Level = LogLevel.Debug;
 #endif
 
-var deviceId = 777;
+var deviceId = Rand.Next(100, 1000);
 XTrace.WriteLine("BACnet 服务端 deviceId={0}", deviceId);
 
 var server = new BacServer

@@ -44,6 +44,17 @@ public class BacServer : DisposeBase
     {
         if (!StorageFile.IsNullOrEmpty()) Storage = DeviceStorage.Load(StorageFile);
 
+        var store = Storage;
+        if (store != null)
+        {
+            store.DeviceId = (UInt32)DeviceId;
+            foreach (var item in store.Objects)
+            {
+                if (item.Type == BacnetObjectTypes.OBJECT_DEVICE)
+                    item.Instance = (UInt32)DeviceId;
+            }
+        }
+
         Transport ??= new BacnetIpUdpProtocolTransport(Port);
 
         var client = new BacnetClient(Transport);
@@ -65,21 +76,22 @@ public class BacServer : DisposeBase
         _client = client;
     }
 
-    private void OnWhoIs(BacnetClient sender, BacnetAddress adr, Int32 lowLimit, Int32 highLimit)
+    private void OnWhoIs(BacnetClient sender, BacnetAddress addr, Int32 lowLimit, Int32 highLimit)
     {
         if (lowLimit != -1 && DeviceId < lowLimit) return;
         if (highLimit != -1 && DeviceId > highLimit) return;
 
-        sender.Iam((UInt32)DeviceId, new BacnetSegmentations());
+        sender.Iam((UInt32)DeviceId, new BacnetSegmentations(), addr);
     }
 
     private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
     {
+        XTrace.WriteLine("OnIam [{0}]: {1}", addr, deviceId);
+
         lock (_nodes)
         {
             foreach (var bn in _nodes)
             {
-                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
                 if (bn.GetAdd(deviceId) != null) return;
             }
 

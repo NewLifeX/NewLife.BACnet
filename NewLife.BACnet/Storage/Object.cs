@@ -17,4 +17,6 @@ public class Object
     {
         Properties = new Property[0];
     }
+
+    public override String ToString() => $"[{Type}] {Instance}";
 }

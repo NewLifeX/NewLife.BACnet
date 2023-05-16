@@ -15,7 +15,7 @@ public class BacServer : DisposeBase
     public IBacnetTransport Transport { get; set; }
 
     /// <summary>设备编号</summary>
-    public UInt32 DeviceId { get; set; }
+    public Int32 DeviceId { get; set; }
 
     /// <summary>存储</summary>
     public DeviceStorage Storage { get; set; }
@@ -60,7 +60,7 @@ public class BacServer : DisposeBase
             WriteLog("本地：{0}", udp.LocalEndPoint);
 
         // 广播“我是谁”
-        client.Iam(DeviceId, new BacnetSegmentations());
+        client.Iam((UInt32)DeviceId, new BacnetSegmentations());
 
         _client = client;
     }
@@ -70,7 +70,7 @@ public class BacServer : DisposeBase
         if (lowLimit != -1 && DeviceId < lowLimit) return;
         if (highLimit != -1 && DeviceId > highLimit) return;
 
-        sender.Iam(DeviceId, new BacnetSegmentations());
+        sender.Iam((UInt32)DeviceId, new BacnetSegmentations());
     }
 
     private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)

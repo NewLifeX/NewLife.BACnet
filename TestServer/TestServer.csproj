@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <OutputPath>..\Bin\Test</OutputPath>
+    <OutputPath>..\Bin\TestServer</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -11,6 +11,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NewLife.BACnet\NewLife.BACnet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="DeviceDescriptor.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

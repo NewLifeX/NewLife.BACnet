@@ -115,9 +115,10 @@ public class BacClient : DisposeBase
     /// <param name="node"></param>
     /// <param name="points"></param>
     /// <returns></returns>
-    public Dictionary<String, Object> Read(BacNode node, IPoint[] points)
+    public Dictionary<String, Object> Read(BacNode node, params IPoint[] points)
     {
-        if (node.Address == null || node.Properties == null) return null;
+        var addr = node.Address;
+        if (addr == null || node.Properties == null) return null;
 
         var dic = new Dictionary<String, Object>();
 
@@ -128,27 +129,40 @@ public class BacClient : DisposeBase
             new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue)
         };
 
-        //var results = new List<BacnetReadAccessResult>();
-        //for (var i = 0; i < node.Properties.Count; i++)
-        //{
-        //    var batch = node.Properties.Skip(i).Take(16).ToList();
-        //    var properties = batch.Select(e => new BacnetReadAccessSpecification(e.ObjectId, rList)).ToList();
-        //    results.AddRange(_client.ReadPropertyMultipleRequest(node.Address, properties));
-        //}
+        var pt = node.Properties[0];
+        if (points.Length == 1)
+        {
+            if (_client.ReadPropertyRequest(addr, pt.ObjectId, BacnetPropertyIds.PROP_PRESENT_VALUE, out var rs))
+            {
+            }
+        }
+        else
+        {
+            var results = new List<BacnetReadAccessResult>();
+            for (var i = 0; i < node.Properties.Count; i++)
+            {
+                var batch = node.Properties.Skip(i).Take(16).ToList();
+                var properties = batch.Select(e => new BacnetReadAccessSpecification(e.ObjectId, rList)).ToList();
+                if (_client.ReadPropertyMultipleRequest(addr, pt.ObjectId, rList, out var values, 0))
+                {
+                    results.AddRange(values);
+                }
+            }
 
-        //foreach (var item in results)
-        //{
-        //    var oid = item.objectIdentifier;
-        //    var pi = node.Properties.FirstOrDefault(t => t.ObjectId.Instance == oid.Instance && t.ObjectId.Type == oid.Type);
-        //    if (pi != null)
-        //    {
-        //        pi.Fill(item);
+            foreach (var item in results)
+            {
+                var oid = item.objectIdentifier;
+                var pi = node.Properties.FirstOrDefault(t => t.ObjectId.Instance == oid.Instance && t.ObjectId.Type == oid.Type);
+                if (pi != null)
+                {
+                    pi.Fill(item);
 
-        //        var key = $"{pi.ObjectId.Instance}_{(Int32)pi.ObjectId.Type}";
-        //        var point = points.FirstOrDefault(e => e.Address == key);
-        //        if (point != null) dic[point.Name] = pi.Value;
-        //    }
-        //}
+                    var key = $"{pi.ObjectId.Instance}_{(Int32)pi.ObjectId.Type}";
+                    var point = points.FirstOrDefault(e => e.Address == key);
+                    if (point != null) dic[point.Name] = pi.Value;
+                }
+            }
+        }
 
         return dic;
     }

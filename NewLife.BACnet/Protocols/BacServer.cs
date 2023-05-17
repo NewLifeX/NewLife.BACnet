@@ -1,4 +1,5 @@
-﻿using System.IO.BACnet;
+﻿using System;
+using System.IO.BACnet;
 using System.IO.BACnet.Storage;
 using NewLife.Log;
 
@@ -102,29 +103,32 @@ public class BacServer : DisposeBase
     #endregion
 
     #region 读写方法
-    private void OnReadPropertyRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyReference property, BacnetMaxSegments maxSegments)
+    private void OnReadPropertyRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyReference property, BacnetMaxSegments maxSegments)
     {
+        WriteLog("ReadProperty[{0}]: {1} {2}", addr, objectId, property);
+
         var storage = Storage;
         lock (storage)
         {
             try
             {
-                IList<BacnetValue> value;
-                var code = storage.ReadProperty(objectId, (BacnetPropertyIds)property.propertyIdentifier, property.propertyArrayIndex, out value);
+                var code = storage.ReadProperty(objectId, (BacnetPropertyIds)property.propertyIdentifier, property.propertyArrayIndex, out var value);
                 if (code == DeviceStorage.ErrorCodes.Good)
-                    sender.ReadPropertyResponse(adr, invokeId, sender.GetSegmentBuffer(maxSegments), objectId, property, value);
+                    sender.ReadPropertyResponse(addr, invokeId, sender.GetSegmentBuffer(maxSegments), objectId, property, value);
                 else
-                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+                    sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
             catch (Exception)
             {
-                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+                sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
         }
     }
 
-    private void OnReadPropertyMultipleRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments maxSegments)
+    private void OnReadPropertyMultipleRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments maxSegments)
     {
+        WriteLog("ReadPropertyMultiple[{0}]: {1} {2}", addr, properties[0].objectIdentifier, properties.Join(",", e => e.propertyReferences[0].propertyIdentifier));
+
         var storage = Storage;
         lock (storage)
         {
@@ -138,7 +142,7 @@ public class BacServer : DisposeBase
                     {
                         if (!storage.ReadPropertyAll(p.objectIdentifier, out value))
                         {
-                            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_OBJECT, BacnetErrorCodes.ERROR_CODE_UNKNOWN_OBJECT);
+                            sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_OBJECT, BacnetErrorCodes.ERROR_CODE_UNKNOWN_OBJECT);
                             return;
                         }
                     }
@@ -147,12 +151,12 @@ public class BacServer : DisposeBase
                     values.Add(new BacnetReadAccessResult(p.objectIdentifier, value));
                 }
 
-                sender.ReadPropertyMultipleResponse(adr, invokeId, sender.GetSegmentBuffer(maxSegments), values);
+                sender.ReadPropertyMultipleResponse(addr, invokeId, sender.GetSegmentBuffer(maxSegments), values);
 
             }
             catch (Exception)
             {
-                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+                sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
         }
     }

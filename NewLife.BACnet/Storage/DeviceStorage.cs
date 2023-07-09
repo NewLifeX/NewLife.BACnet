@@ -1,55 +1,28 @@
-﻿/**************************************************************************
-*                           MIT License
-* 
-* Copyright (C) 2014 Morten Kvistgaard <mk@pch-engineering.dk>
-*
-* Permission is hereby granted, free of charge, to any person obtaining
-* a copy of this software and associated documentation files (the
-* "Software"), to deal in the Software without restriction, including
-* without limitation the rights to use, copy, modify, merge, publish,
-* distribute, sublicense, and/or sell copies of the Software, and to
-* permit persons to whom the Software is furnished to do so, subject to
-* the following conditions:
-*
-* The above copyright notice and this permission notice shall be included
-* in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*
-*********************************************************************/
-
-using System.Reflection;
+﻿using System.Reflection;
 using System.Xml.Serialization;
 
 namespace System.IO.BACnet.Storage;
 
-/// <summary>
-/// This is a basic example of a BACNet storage. This one is XML based. It has no fancy optimizing or anything.
-/// </summary>
+#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+/// <summary>设备数据存储</summary>
 [Serializable]
 public class DeviceStorage
 {
     [XmlIgnore]
-    public uint DeviceId { get; set; }
+    public UInt32 DeviceId { get; set; }
 
-    public delegate void ChangeOfValueHandler(DeviceStorage sender, BacnetObjectId objectId, BacnetPropertyIds propertyId, uint arrayIndex, IList<BacnetValue> value);
+    public delegate void ChangeOfValueHandler(DeviceStorage sender, BacnetObjectId objectId, BacnetPropertyIds propertyId, UInt32 arrayIndex, IList<BacnetValue> value);
     public event ChangeOfValueHandler ChangeOfValue;
-    public delegate void ReadOverrideHandler(BacnetObjectId objectId, BacnetPropertyIds propertyId, uint arrayIndex, out IList<BacnetValue> value, out ErrorCodes status, out bool handled);
+    public delegate void ReadOverrideHandler(BacnetObjectId objectId, BacnetPropertyIds propertyId, UInt32 arrayIndex, out IList<BacnetValue> value, out ErrorCodes status, out Boolean handled);
     public event ReadOverrideHandler ReadOverride;
-    public delegate void WriteOverrideHandler(BacnetObjectId objectId, BacnetPropertyIds propertyId, uint arrayIndex, IList<BacnetValue> value, out ErrorCodes status, out bool handled);
+    public delegate void WriteOverrideHandler(BacnetObjectId objectId, BacnetPropertyIds propertyId, UInt32 arrayIndex, IList<BacnetValue> value, out ErrorCodes status, out Boolean handled);
     public event WriteOverrideHandler WriteOverride;
 
     public Object[] Objects { get; set; }
 
     public DeviceStorage()
     {
-        DeviceId = (uint)new Random().Next();
+        DeviceId = (UInt32)new Random().Next();
         Objects = new Object[0];
     }
 
@@ -89,7 +62,7 @@ public class DeviceStorage
         UnknownProperty = -6
     }
 
-    public int ReadPropertyValue(BacnetObjectId objectId, BacnetPropertyIds propertyId)
+    public Int32 ReadPropertyValue(BacnetObjectId objectId, BacnetPropertyIds propertyId)
     {
         if (ReadProperty(objectId, propertyId, Serialize.ASN1.BACNET_ARRAY_ALL, out IList<BacnetValue> value) != ErrorCodes.Good)
             return 0;
@@ -97,10 +70,10 @@ public class DeviceStorage
         if (value == null || value.Count < 1)
             return 0;
 
-        return (int)Convert.ChangeType(value[0].Value, typeof(int));
+        return (Int32)Convert.ChangeType(value[0].Value, typeof(Int32));
     }
 
-    public ErrorCodes ReadProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, uint arrayIndex, out IList<BacnetValue> value)
+    public ErrorCodes ReadProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, UInt32 arrayIndex, out IList<BacnetValue> value)
     {
         value = new BacnetValue[0];
 
@@ -111,7 +84,7 @@ public class DeviceStorage
         //overrides
         if (ReadOverride != null)
         {
-            ReadOverride(objectId, propertyId, arrayIndex, out value, out ErrorCodes status, out bool handled);
+            ReadOverride(objectId, propertyId, arrayIndex, out value, out ErrorCodes status, out var handled);
             if (handled)
                 return status;
         }
@@ -129,11 +102,11 @@ public class DeviceStorage
         //get value ... check for array index
         if (arrayIndex == 0)
         {
-            value = new[] { new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_UNSIGNED_INT, (uint)p.BacnetValue.Count) };
+            value = new[] { new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_UNSIGNED_INT, (UInt32)p.BacnetValue.Count) };
         }
         else if (arrayIndex != Serialize.ASN1.BACNET_ARRAY_ALL)
         {
-            value = new[] { p.BacnetValue[(int)arrayIndex - 1] };
+            value = new[] { p.BacnetValue[(Int32)arrayIndex - 1] };
         }
         else
         {
@@ -175,7 +148,7 @@ public class DeviceStorage
         values = valuesRet;
     }
 
-    public bool ReadPropertyAll(BacnetObjectId objectId, out IList<BacnetPropertyValue> values)
+    public Boolean ReadPropertyAll(BacnetObjectId objectId, out IList<BacnetPropertyValue> values)
     {
         //find
         var obj = FindObject(objectId);
@@ -191,7 +164,7 @@ public class DeviceStorage
         {
             var newEntry = new BacnetPropertyValue
             {
-                property = new BacnetPropertyReference((uint)obj.Properties[i].Id, Serialize.ASN1.BACNET_ARRAY_ALL)
+                property = new BacnetPropertyReference((UInt32)obj.Properties[i].Id, Serialize.ASN1.BACNET_ARRAY_ALL)
             };
 
             if (ReadProperty(objectId, obj.Properties[i].Id, Serialize.ASN1.BACNET_ARRAY_ALL, out newEntry.value) != ErrorCodes.Good)
@@ -207,7 +180,7 @@ public class DeviceStorage
         return true;
     }
 
-    public void WritePropertyValue(BacnetObjectId objectId, BacnetPropertyIds propertyId, int value)
+    public void WritePropertyValue(BacnetObjectId objectId, BacnetPropertyIds propertyId, Int32 value)
     {
         //get existing type
         if (ReadProperty(objectId, propertyId, Serialize.ASN1.BACNET_ARRAY_ALL, out IList<BacnetValue> readValues) != ErrorCodes.Good)
@@ -229,7 +202,7 @@ public class DeviceStorage
         WriteProperty(objectId, propertyId, Serialize.ASN1.BACNET_ARRAY_ALL, new[] { value });
     }
 
-    public ErrorCodes WriteProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, uint arrayIndex, IList<BacnetValue> value, bool addIfNotExits = false)
+    public ErrorCodes WriteProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, UInt32 arrayIndex, IList<BacnetValue> value, Boolean addIfNotExits = false)
     {
         //wildcard device_id
         if (objectId.type == BacnetObjectTypes.OBJECT_DEVICE && objectId.instance >= Serialize.ASN1.BACNET_MAX_INSTANCE)
@@ -238,7 +211,7 @@ public class DeviceStorage
         //overrides
         if (WriteOverride != null)
         {
-            WriteOverride(objectId, propertyId, arrayIndex, value, out ErrorCodes status, out bool handled);
+            WriteOverride(objectId, propertyId, arrayIndex, value, out ErrorCodes status, out var handled);
             if (handled)
                 return status;
         }
@@ -295,7 +268,7 @@ public class DeviceStorage
     }
 
     // Write PROP_PRESENT_VALUE or PROP_RELINQUISH_DEFAULT in an object with a 16 level PROP_PRIORITY_ARRAY (BACNET_APPLICATION_TAG_NULL)
-    public ErrorCodes WriteCommandableProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, BacnetValue value, uint priority)
+    public ErrorCodes WriteCommandableProperty(BacnetObjectId objectId, BacnetPropertyIds propertyId, BacnetValue value, UInt32 priority)
     {
 
         if (propertyId != BacnetPropertyIds.PROP_PRESENT_VALUE)
@@ -322,7 +295,7 @@ public class DeviceStorage
         try
         {
             // If PROP_OUT_OF_SERVICE=True, value is accepted as is : http://www.bacnetwiki.com/wiki/index.php?title=Priority_Array                 
-            if ((bool)outOfService.BacnetValue[0].Value && propertyId == BacnetPropertyIds.PROP_PRESENT_VALUE)
+            if ((Boolean)outOfService.BacnetValue[0].Value && propertyId == BacnetPropertyIds.PROP_PRESENT_VALUE)
             {
                 WriteProperty(objectId, BacnetPropertyIds.PROP_PRESENT_VALUE, value);
                 return ErrorCodes.Good;
@@ -345,9 +318,9 @@ public class DeviceStorage
 
                 valueArray = array.BacnetValue;
                 if (value.Value == null)
-                    valueArray[(int)priority - 1] = new BacnetValue(null);
+                    valueArray[(Int32)priority - 1] = new BacnetValue(null);
                 else
-                    valueArray[(int)priority - 1] = value;
+                    valueArray[(Int32)priority - 1] = value;
                 array.BacnetValue = valueArray;
             }
 
@@ -392,7 +365,7 @@ public class DeviceStorage
     /// Store the class, as XML file
     /// </summary>
     /// <param name="path"></param>
-    public void Save(string path)
+    public void Save(String path)
     {
         var s = new XmlSerializer(typeof(DeviceStorage));
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
@@ -405,31 +378,30 @@ public class DeviceStorage
     /// <param name="path">Embedded or external file</param>
     /// <param name="deviceId">Optional deviceId other than the one in the Xml file</param>
     /// <returns></returns>
-    public static DeviceStorage Load(string path, uint? deviceId = null)
+    public static DeviceStorage Load(String path, UInt32? deviceId = null)
     {
-        StreamReader textStreamReader;
+        StreamReader reader = null;
 
-        var assembly = Assembly.GetCallingAssembly();
-
-        try
+        if (File.Exists(path.GetFullPath()))
+            reader = new StreamReader(path.GetFullPath());
+        else
         {
+            var assembly = Assembly.GetCallingAssembly();
+            var ms = assembly.GetManifestResourceStream(path);
+
             // check if the xml file is an embedded resource
-            textStreamReader = new StreamReader(assembly.GetManifestResourceStream(path));
+            if (ms != null) reader = new StreamReader(ms);
         }
-        catch
-        {
-            // if not check the external file
-            if (!File.Exists(path))
-                throw new Exception("No AppSettings found");
 
-            textStreamReader = new StreamReader(path);
-        }
+        // if not check the external file
+        if (reader == null)
+            throw new Exception("No AppSettings found");
 
         var s = new XmlSerializer(typeof(DeviceStorage));
 
-        using (textStreamReader)
+        using (reader)
         {
-            var ret = (DeviceStorage)s.Deserialize(textStreamReader);
+            var ret = (DeviceStorage)s.Deserialize(reader);
 
             //set device_id
             var obj = ret.FindObject(BacnetObjectTypes.OBJECT_DEVICE);
@@ -448,8 +420,8 @@ public class DeviceStorage
             obj.Instance = deviceId.Value;
             IList<BacnetValue> val = new[]
             {
-                    new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID, $"OBJECT_DEVICE:{deviceId.Value}")
-                };
+                new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID, $"OBJECT_DEVICE:{deviceId.Value}")
+            };
 
             ret.WriteProperty(new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE,
                 Serialize.ASN1.BACNET_MAX_INSTANCE), BacnetPropertyIds.PROP_OBJECT_IDENTIFIER, 1, val, true);
@@ -458,3 +430,4 @@ public class DeviceStorage
         }
     }
 }
+#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释

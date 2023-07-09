@@ -1,11 +1,16 @@
 ﻿using NewLife.BACnet.Protocols;
 using NewLife.IoT.ThingModels;
 using NewLife.Log;
+using NewLife.Model;
+using Stardust;
 
 XTrace.UseConsole();
 #if DEBUG
 XTrace.Log.Level = LogLevel.Debug;
 #endif
+
+var services = ObjectContainer.Current;
+var star = services.AddStardust();
 
 var deviceId = 777;
 XTrace.WriteLine("BACnet 客户端 deviceId={0}", deviceId);
@@ -16,6 +21,7 @@ var client = new BacClient
     //Port = 53817,
     DeviceId = 66,
 
+    Tracer = star?.Tracer,
     Log = XTrace.Log
 };
 

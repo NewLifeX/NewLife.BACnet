@@ -196,6 +196,8 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
     public override void Start()
     {
+        using var span = Tracer?.NewSpan("bac:UdpStart", new { SharedPort, ExclusivePort });
+
         _disposing = false;
 
         Open();

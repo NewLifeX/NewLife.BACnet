@@ -1,12 +1,11 @@
-﻿using System;
-using System.IO.BACnet;
+﻿using System.IO.BACnet;
 using System.IO.BACnet.Storage;
 using NewLife.Log;
 
 namespace NewLife.BACnet.Protocols;
 
 /// <summary>BACnet服务端。默认UDP协议</summary>
-public class BacServer : DisposeBase
+public class BacServer : DisposeBase, ITracerFeature, ILogFeature
 {
     #region 属性
     /// <summary>共享端口。节点在该端口上监听广播数据，多进程共享，默认0xBAC0，即47808</summary>
@@ -43,38 +42,47 @@ public class BacServer : DisposeBase
     /// <summary>打开连接</summary>
     public void Open()
     {
-        if (!StorageFile.IsNullOrEmpty()) Storage = DeviceStorage.Load(StorageFile);
-
-        var store = Storage;
-        if (store != null)
+        using var span = Tracer?.NewSpan("bac:Open", new { Port, DeviceId, StorageFile });
+        try
         {
-            store.DeviceId = (UInt32)DeviceId;
-            foreach (var item in store.Objects)
+            if (!StorageFile.IsNullOrEmpty()) Storage = DeviceStorage.Load(StorageFile);
+
+            var store = Storage;
+            if (store != null)
             {
-                if (item.Type == BacnetObjectTypes.OBJECT_DEVICE)
-                    item.Instance = (UInt32)DeviceId;
+                store.DeviceId = (UInt32)DeviceId;
+                foreach (var item in store.Objects)
+                {
+                    if (item.Type == BacnetObjectTypes.OBJECT_DEVICE)
+                        item.Instance = (UInt32)DeviceId;
+                }
             }
+
+            Transport ??= new BacnetIpUdpProtocolTransport(Port) { Tracer = Tracer };
+
+            var client = new BacnetClient(Transport) { Tracer = Tracer };
+            client.OnWhoIs += OnWhoIs;
+            client.OnIam += OnIam;
+            client.OnReadPropertyRequest += OnReadPropertyRequest;
+            client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
+            client.OnWritePropertyRequest += OnWritePropertyRequest;
+
+            // 监听端口
+            client.Start();
+
+            if (Transport is BacnetIpUdpProtocolTransport udp)
+                WriteLog("本地：{0}", udp.LocalEndPoint);
+
+            // 广播“我是谁”
+            client.Iam((UInt32)DeviceId, new BacnetSegmentations());
+
+            _client = client;
         }
-
-        Transport ??= new BacnetIpUdpProtocolTransport(Port);
-
-        var client = new BacnetClient(Transport);
-        client.OnWhoIs += OnWhoIs;
-        client.OnIam += OnIam;
-        client.OnReadPropertyRequest += OnReadPropertyRequest;
-        client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
-        client.OnWritePropertyRequest += OnWritePropertyRequest;
-
-        // 监听端口
-        client.Start();
-
-        if (Transport is BacnetIpUdpProtocolTransport udp)
-            WriteLog("本地：{0}", udp.LocalEndPoint);
-
-        // 广播“我是谁”
-        client.Iam((UInt32)DeviceId, new BacnetSegmentations());
-
-        _client = client;
+        catch (Exception ex)
+        {
+            span?.SetError(ex, null);
+            throw;
+        }
     }
 
     private void OnWhoIs(BacnetClient sender, BacnetAddress addr, Int32 lowLimit, Int32 highLimit)
@@ -82,11 +90,14 @@ public class BacServer : DisposeBase
         if (lowLimit != -1 && DeviceId < lowLimit) return;
         if (highLimit != -1 && DeviceId > highLimit) return;
 
+        using var span = Tracer?.NewSpan("bac:OnWhoIs", new { addr, lowLimit, highLimit });
+
         sender.Iam((UInt32)DeviceId, new BacnetSegmentations(), addr);
     }
 
     private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
     {
+        using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
         XTrace.WriteLine("OnIam [{0}]: {1}", addr, deviceId);
 
         lock (_nodes)
@@ -105,6 +116,7 @@ public class BacServer : DisposeBase
     #region 读写方法
     private void OnReadPropertyRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyReference property, BacnetMaxSegments maxSegments)
     {
+        using var span = Tracer?.NewSpan("bac:OnReadProperty", new { addr, objectId, property });
         WriteLog("ReadProperty[{0}]: {1} {2}", addr, objectId, property);
 
         var storage = Storage;
@@ -127,6 +139,7 @@ public class BacServer : DisposeBase
 
     private void OnReadPropertyMultipleRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments maxSegments)
     {
+        using var span = Tracer?.NewSpan("bac:OnReadPropertyMultiple", new { addr, properties });
         WriteLog("ReadPropertyMultiple[{0}]: {1} {2}", addr, properties[0].objectIdentifier, properties.Join(",", e => e.propertyReferences[0].propertyIdentifier));
 
         var storage = Storage;
@@ -161,12 +174,14 @@ public class BacServer : DisposeBase
         }
     }
 
-    private void OnWritePropertyRequest(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyValue value, BacnetMaxSegments maxSegments)
+    private void OnWritePropertyRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyValue value, BacnetMaxSegments maxSegments)
     {
+        using var span = Tracer?.NewSpan("bac:OnWriteProperty", new { addr, objectId, value });
+
         // only OBJECT_ANALOG_VALUE:0.PROP_PRESENT_VALUE could be write in this sample code
         if ((objectId.type != BacnetObjectTypes.OBJECT_ANALOG_VALUE) || (objectId.instance != 0) || ((BacnetPropertyIds)value.property.propertyIdentifier != BacnetPropertyIds.PROP_PRESENT_VALUE))
         {
-            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+            sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
             return;
         }
 
@@ -180,19 +195,22 @@ public class BacServer : DisposeBase
                     code = m_storage.WriteProperty(objectId, (BacnetPropertyIds)value.property.propertyIdentifier, value.property.propertyArrayIndex, value.value);
 
                 if (code == DeviceStorage.ErrorCodes.Good)
-                    sender.SimpleAckResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId);
+                    sender.SimpleAckResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId);
                 else
-                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+                    sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
             catch (Exception)
             {
-                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+                sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
         }
     }
     #endregion
 
     #region 日志
+    /// <summary>性能追踪</summary>
+    public ITracer Tracer { get; set; }
+
     /// <summary>日志</summary>
     public ILog Log { get; set; }
 

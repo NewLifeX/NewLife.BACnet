@@ -1,30 +1,6 @@
-﻿/**************************************************************************
-*                           MIT License
-* 
-* Copyright (C) 2014 Morten Kvistgaard <mk@pch-engineering.dk>
-*
-* Permission is hereby granted, free of charge, to any person obtaining
-* a copy of this software and associated documentation files (the
-* "Software"), to deal in the Software without restriction, including
-* without limitation the rights to use, copy, modify, merge, publish,
-* distribute, sublicense, and/or sell copies of the Software, and to
-* permit persons to whom the Software is furnished to do so, subject to
-* the following conditions:
-*
-* The above copyright notice and this permission notice shall be included
-* in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*
-*********************************************************************/
-using System.IO.BACnet.Serialize;
+﻿using System.IO.BACnet.Serialize;
 using System.Net;
+using NewLife;
 using NewLife.Log;
 
 namespace System.IO.BACnet;
@@ -62,6 +38,11 @@ public class BacnetClient : IDisposable
     public Byte ProposedWindowSize { get; set; } = 10;
     public Boolean ForceWindowSize { get; set; }
     public Boolean DefaultSegmentationHandling { get; set; } = true;
+
+    /// <summary>性能追踪</summary>
+    public ITracer Tracer { get; set; }
+
+    /// <summary>日志</summary>
     public ILog Log { get; set; } = XTrace.Log;
 
     /// <summary>
@@ -154,6 +135,7 @@ public class BacnetClient : IDisposable
 
     public EncodeBuffer GetEncodeBuffer(Int32 startOffset) => new(new Byte[Transport.MaxBufferLength], startOffset);
 
+    /// <summary>开始连接</summary>
     public void Start()
     {
         Transport.Start();
@@ -498,6 +480,7 @@ public class BacnetClient : IDisposable
 
     protected void ProcessUnconfirmedServiceRequest(BacnetAddress address, BacnetPduTypes type, BacnetUnconfirmedServices service, Byte[] buffer, Int32 offset, Int32 length)
     {
+        using var span = Tracer?.NewSpan($"bac:Receive:{service.ToString().TrimStart("SERVICE_UNCONFIRMED_")}", new { address, type, length });
         try
         {
             Log.Debug("<=[{0}]: {1}", address, service);
@@ -560,6 +543,7 @@ public class BacnetClient : IDisposable
         }
         catch (Exception ex)
         {
+            span?.SetError(ex, null);
             Log.Error("Error in ProcessUnconfirmedServiceRequest", ex);
         }
     }
@@ -1091,6 +1075,8 @@ public class BacnetClient : IDisposable
 
     public void WhoIs(Int32 lowLimit = -1, Int32 highLimit = -1, BacnetAddress receiver = null, BacnetAddress source = null)
     {
+        using var span = Tracer?.NewSpan("bac:WhoIs", new { lowLimit, highLimit, receiver });
+
         if (receiver == null)
         {
             // _receiver could be an unicast @ : for direct acces 
@@ -1113,6 +1099,8 @@ public class BacnetClient : IDisposable
 
     public void Iam(UInt32 deviceId, BacnetSegmentations segmentation = BacnetSegmentations.SEGMENTATION_BOTH, BacnetAddress receiver = null, BacnetAddress source = null)
     {
+        using var span = Tracer?.NewSpan("bac:Iam", new { deviceId, receiver });
+
         if (receiver == null)
         {
             receiver = Transport.GetBroadcastAddress();

@@ -1,13 +1,18 @@
 ﻿using System.IO.BACnet;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
+using NewLife.Model;
 using NewLife.Security;
 using NewLife.Threading;
+using Stardust;
 
 XTrace.UseConsole();
 #if DEBUG
 XTrace.Log.Level = LogLevel.Debug;
 #endif
+
+var services = ObjectContainer.Current;
+var star = services.AddStardust();
 
 var deviceId = Rand.Next(100, 1000);
 XTrace.WriteLine("BACnet 服务端 deviceId={0}", deviceId);
@@ -17,6 +22,7 @@ var server = new BacServer
     DeviceId = deviceId,
     StorageFile = "DeviceDescriptor.xml",
 
+    Tracer = star?.Tracer,
     Log = XTrace.Log,
 };
 

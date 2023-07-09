@@ -7,7 +7,7 @@ using NewLife.Threading;
 namespace NewLife.BACnet.Protocols;
 
 /// <summary>BACnet客户端。默认UDP协议</summary>
-public class BacClient : DisposeBase
+public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 {
     #region 属性
     /// <summary>地址</summary>
@@ -33,6 +33,7 @@ public class BacClient : DisposeBase
     {
         base.Dispose(disposing);
 
+        _timer.TryDispose();
         _client.TryDispose();
     }
     #endregion
@@ -41,23 +42,32 @@ public class BacClient : DisposeBase
     /// <summary>打开连接</summary>
     public void Open()
     {
-        Transport ??= new BacnetIpUdpProtocolTransport(Port);
+        using var span = Tracer?.NewSpan("bac:Open", new { Port, DeviceId, Address });
+        try
+        {
+            Transport ??= new BacnetIpUdpProtocolTransport(Port) { Tracer = Tracer };
 
-        var client = new BacnetClient(Transport);
-        client.OnIam += OnIam;
+            var client = new BacnetClient(Transport) { Tracer = Tracer };
+            client.OnIam += OnIam;
 
-        // 监听端口
-        client.Start();
+            // 监听端口
+            client.Start();
 
-        if (Transport is BacnetIpUdpProtocolTransport udp)
-            WriteLog("本地：{0}", udp.LocalEndPoint);
+            if (Transport is BacnetIpUdpProtocolTransport udp)
+                WriteLog("本地：{0}", udp.LocalEndPoint);
 
-        // 广播“你是谁”
-        client.WhoIs();
+            // 广播“你是谁”
+            client.WhoIs();
 
-        _client = client;
+            _client = client;
 
-        _timer = new TimerX(DoScan, null, 0, 10_000) { Async = true };
+            _timer = new TimerX(DoScan, null, 0, 10_000) { Async = true };
+        }
+        catch (Exception ex)
+        {
+            span?.SetError(ex, null);
+            throw;
+        }
     }
 
     /// <summary>获取指定地址的节点</summary>
@@ -71,6 +81,8 @@ public class BacClient : DisposeBase
 
     private void DoScan(Object state)
     {
+        using var span = Tracer?.NewSpan("bac:Scan", new { Port, DeviceId, Address });
+
         foreach (var node in _nodes)
         {
             if (node.Address != null)
@@ -119,6 +131,8 @@ public class BacClient : DisposeBase
     {
         var addr = node.Address;
         if (addr == null || node.Properties == null) return null;
+
+        using var span = Tracer?.NewSpan("bac:Read", new { node.Address, points });
 
         var dic = new Dictionary<String, Object>();
 
@@ -174,6 +188,8 @@ public class BacClient : DisposeBase
     /// <returns></returns>
     public virtual Object Write(String addr, IPoint point, Object value)
     {
+        using var span = Tracer?.NewSpan("bac:Write", new { addr, point, value });
+
         var bacnet = _nodes.FirstOrDefault(e => e.Address + "" == addr);
 
         var ss = point.Address.Split('_');
@@ -194,6 +210,8 @@ public class BacClient : DisposeBase
 
     private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
     {
+        using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
+
         lock (_nodes)
         {
             foreach (var bn in _nodes)
@@ -209,6 +227,9 @@ public class BacClient : DisposeBase
     #endregion
 
     #region 日志
+    /// <summary>性能追踪</summary>
+    public ITracer Tracer { get; set; }
+
     /// <summary>日志</summary>
     public ILog Log { get; set; }
 

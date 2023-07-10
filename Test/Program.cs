@@ -19,7 +19,7 @@ var client = new BacClient
 {
     //Address = NetHelper.MyIP() + "",
     //Port = 53817,
-    DeviceId = 66,
+    DeviceId = 666,
 
     Tracer = star?.Tracer,
     Log = XTrace.Log

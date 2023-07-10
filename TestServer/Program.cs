@@ -14,7 +14,8 @@ XTrace.Log.Level = LogLevel.Debug;
 var services = ObjectContainer.Current;
 var star = services.AddStardust();
 
-var deviceId = Rand.Next(100, 1000);
+//var deviceId = Rand.Next(100, 1000);
+var deviceId = 666;
 XTrace.WriteLine("BACnet 服务端 deviceId={0}", deviceId);
 
 var server = new BacServer

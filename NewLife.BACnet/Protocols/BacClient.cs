@@ -209,6 +209,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
 
+        // 只要目标DeviceId
+        if (DeviceId > 0 && deviceId != DeviceId) return;
+
         lock (_nodes)
         {
             foreach (var bn in _nodes)

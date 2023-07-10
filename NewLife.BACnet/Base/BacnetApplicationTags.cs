@@ -1,6 +1,6 @@
 ﻿namespace System.IO.BACnet;
 
-public enum BacnetApplicationTags
+public enum BacnetApplicationTags : Byte
 {
     BACNET_APPLICATION_TAG_NULL = 0,
     BACNET_APPLICATION_TAG_BOOLEAN = 1,

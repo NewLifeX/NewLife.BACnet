@@ -56,12 +56,12 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
             if (Transport is BacnetIpUdpProtocolTransport udp)
                 WriteLog("本地：{0}", udp.LocalEndPoint);
 
-            // 广播“你是谁”
-            client.WhoIs();
+            //// 广播“你是谁”
+            //client.WhoIs();
 
             _client = client;
 
-            _timer = new TimerX(DoScan, null, 0, 10_000) { Async = true };
+            _timer = new TimerX(DoScan, null, 0, 60_000) { Async = true };
         }
         catch (Exception ex)
         {
@@ -83,36 +83,39 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         using var span = Tracer?.NewSpan("bac:Scan", new { Port, DeviceId, Address });
 
-        foreach (var node in _nodes)
-        {
-            if (node.Address != null)
-            {
-                var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
-                if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
-                {
-                    node.Properties.Clear();
-                    var prs = new List<BacnetPropertyReference>();
-                    for (var i = 0; i < list.Count; i++)
-                    {
-                        var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
-                        prs.Add(property);
-                    }
-                    for (var i = 0; i < list.Count;)
-                    {
-                        var batch = prs.Skip(i).Take(16).ToList();
-                        if (batch.Count == 0) break;
+        // 广播“你是谁”
+        _client.WhoIs();
 
-                        if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
-                        {
-                            var ps = BacProperty.Create(results);
-                            node.Properties.AddRange(ps);
-                        }
+        //foreach (var node in _nodes)
+        //{
+        //    if (node.Address != null)
+        //    {
+        //        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
+        //        if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
+        //        {
+        //            node.Properties.Clear();
+        //            var prs = new List<BacnetPropertyReference>();
+        //            for (var i = 0; i < list.Count; i++)
+        //            {
+        //                var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
+        //                prs.Add(property);
+        //            }
+        //            for (var i = 0; i < list.Count;)
+        //            {
+        //                var batch = prs.Skip(i).Take(16).ToList();
+        //                if (batch.Count == 0) break;
 
-                        i += batch.Count;
-                    }
-                }
-            }
-        }
+        //                if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
+        //                {
+        //                    var ps = BacProperty.Create(results);
+        //                    node.Properties.AddRange(ps);
+        //                }
+
+        //                i += batch.Count;
+        //            }
+        //        }
+        //    }
+        //}
     }
     #endregion
 
@@ -216,7 +219,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
             _nodes.Add(new BacNode(addr, deviceId));
 
-            _timer.SetNext(-1);
+            //_timer.SetNext(-1);
         }
 
     }

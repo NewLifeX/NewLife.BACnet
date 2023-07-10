@@ -65,6 +65,7 @@ public class BACnetDriver : DriverBase
             Driver = this,
             Device = device,
             Parameter = p,
+            Client = _client,
         };
     }
 

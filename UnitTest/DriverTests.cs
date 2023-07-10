@@ -31,7 +31,7 @@ public class DriverTests
         {
             Address = "127.0.0.1",
             Port = 47808,
-            DeviceId = 1243,
+            DeviceId = 12345,
         };
 
         var node = driver.Open(null, ps);
@@ -40,6 +40,8 @@ public class DriverTests
         var bacNode = node as BACnetNode;
         Assert.NotNull(bacNode);
         Assert.NotNull(bacNode.Client);
+
+        bacNode.Client.Open();
 
         var client = driver.GetValue("_client");
         Assert.Equal(client, bacNode.Client);
@@ -51,7 +53,7 @@ public class DriverTests
     }
 
     [Fact]
-    public void GetDefaultParameter3()
+    public void Read()
     {
         var driver = new BACnetDriver();
 
@@ -59,7 +61,7 @@ public class DriverTests
         {
             Address = "127.0.0.1",
             Port = 47808,
-            DeviceId = 1243,
+            DeviceId = 12345,
         };
 
         var node = driver.Open(null, ps) as BACnetNode;

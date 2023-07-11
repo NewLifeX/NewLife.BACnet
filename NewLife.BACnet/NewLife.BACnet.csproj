@@ -36,6 +36,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Transport\BacnetMstpProtocolTransport.cs" />
+    <Compile Remove="Transport\BacnetPipeTransport.cs" />
+    <Compile Remove="Transport\BacnetPtpProtocolTransport.cs" />
+    <Compile Remove="Transport\BacnetSerialPortTransport.cs" />
     <Compile Remove="Transport\BacnetTransportEthernet.cs" />
   </ItemGroup>
 
@@ -48,13 +52,10 @@
 
   <ItemGroup>
     <PackageReference Include="NewLife.Core" Version="10.4.2023.707" />
-    <PackageReference Include="NewLife.IoT" Version="1.8.2023.511" />
+    <PackageReference Include="NewLife.IoT" Version="1.8.2023.711" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)'=='net461'">
     <PackageReference Include="System.IO.Ports" Version="6.0.0" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)'!='net461' and '$(TargetFramework)'!='net45'">
-    <PackageReference Include="System.IO.Ports" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

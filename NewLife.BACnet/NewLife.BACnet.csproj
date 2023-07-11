@@ -41,6 +41,7 @@
     <Compile Remove="Transport\BacnetPtpProtocolTransport.cs" />
     <Compile Remove="Transport\BacnetSerialPortTransport.cs" />
     <Compile Remove="Transport\BacnetTransportEthernet.cs" />
+    <Compile Remove="Transport\IBacnetSerialTransport.cs" />
   </ItemGroup>
 
   <ItemGroup>

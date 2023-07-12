@@ -23,6 +23,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     public Int32 DeviceId { get; set; }
 
     private readonly List<BacNode> _nodes = new();
+    /// <summary>节点集合</summary>
+    public IList<BacNode> Nodes => _nodes;
+
     private BacnetClient _client;
     #endregion
 
@@ -74,6 +77,11 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <param name="address"></param>
     /// <returns></returns>
     public BacNode GetNode(String address) => _nodes.FirstOrDefault(e => e.Address + "" == address);
+
+    /// <summary>获取指定地址的节点</summary>
+    /// <param name="deviceId"></param>
+    /// <returns></returns>
+    public BacNode GetNode(Int32 deviceId) => _nodes.FirstOrDefault(e => e.DeviceId == deviceId);
     #endregion
 
     #region 设备扫描管理
@@ -86,36 +94,94 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         // 广播“你是谁”
         _client.WhoIs();
 
-        //foreach (var node in _nodes)
-        //{
-        //    if (node.Address != null)
-        //    {
-        //        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
-        //        if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
-        //        {
-        //            node.Properties.Clear();
-        //            var prs = new List<BacnetPropertyReference>();
-        //            for (var i = 0; i < list.Count; i++)
-        //            {
-        //                var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
-        //                prs.Add(property);
-        //            }
-        //            for (var i = 0; i < list.Count;)
-        //            {
-        //                var batch = prs.Skip(i).Take(16).ToList();
-        //                if (batch.Count == 0) break;
+    }
 
-        //                if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
-        //                {
-        //                    var ps = BacProperty.Create(results);
-        //                    node.Properties.AddRange(ps);
-        //                }
+    TaskCompletionSource<BacNode> _tcs;
+    /// <summary>扫描节点</summary>
+    /// <returns></returns>
+    public void Scan()
+    {
+        _tcs = new TaskCompletionSource<BacNode>();
+        try
+        {
+            // 广播“你是谁”
+            _client.WhoIs();
 
-        //                i += batch.Count;
-        //            }
-        //        }
-        //    }
-        //}
+            _tcs.Task.Wait(3_000);
+        }
+        finally
+        {
+            _tcs.TryDispose();
+            _tcs = null;
+        }
+    }
+
+    private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
+    {
+        using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
+
+        // 只要目标DeviceId
+        if (DeviceId > 0 && deviceId != DeviceId) return;
+
+        lock (_nodes)
+        {
+            foreach (var bn in _nodes)
+            {
+                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
+                if (bn.GetAdd(deviceId) != null) return;
+            }
+
+            var node = new BacNode(addr, deviceId);
+            _nodes.Add(node);
+
+            //_timer.SetNext(-1);
+            _tcs.TrySetResult(node);
+        }
+
+    }
+
+    /// <summary>获取节点属性列表</summary>
+    public void GetProperties()
+    {
+        foreach (var node in _nodes)
+        {
+            if (node.Address != null)
+            {
+                GetProperties(node);
+            }
+        }
+    }
+
+    /// <summary>获取节点属性列表</summary>
+    /// <param name="node"></param>
+    public void GetProperties(BacNode node)
+    {
+        if (node.Address == null) return;
+
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
+        if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
+        {
+            node.Properties.Clear();
+            var prs = new List<BacnetPropertyReference>();
+            for (var i = 0; i < list.Count; i++)
+            {
+                var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_LIST, (UInt32)i);
+                prs.Add(property);
+            }
+            for (var i = 0; i < list.Count;)
+            {
+                var batch = prs.Skip(i).Take(16).ToList();
+                if (batch.Count == 0) break;
+
+                if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
+                {
+                    var ps = BacProperty.Create(results);
+                    node.Properties.AddRange(ps);
+                }
+
+                i += batch.Count;
+            }
+        }
     }
     #endregion
 
@@ -140,10 +206,11 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
             new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue)
         };
 
-        var pt = node.Properties[0];
+        //var pt = node.Properties[0];
+        var obj = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
         if (points.Length == 1)
         {
-            if (_client.ReadPropertyRequest(addr, pt.ObjectId, BacnetPropertyIds.PROP_PRESENT_VALUE, out var rs))
+            if (_client.ReadPropertyRequest(addr, obj, BacnetPropertyIds.PROP_PRESENT_VALUE, out var rs))
             {
             }
         }
@@ -154,7 +221,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
             {
                 var batch = node.Properties.Skip(i).Take(16).ToList();
                 var properties = batch.Select(e => new BacnetReadAccessSpecification(e.ObjectId, rList)).ToList();
-                if (_client.ReadPropertyMultipleRequest(addr, pt.ObjectId, rList, out var values, 0))
+                if (_client.ReadPropertyMultipleRequest(addr, obj, rList, out var values, 0))
                 {
                     results.AddRange(values);
                 }
@@ -203,28 +270,6 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         _client.WritePropertyRequest(bacnet.Address, pi.ObjectId, BacnetPropertyIds.PROP_PRESENT_VALUE, values);
 
         return null;
-    }
-
-    private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
-    {
-        using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
-
-        // 只要目标DeviceId
-        if (DeviceId > 0 && deviceId != DeviceId) return;
-
-        lock (_nodes)
-        {
-            foreach (var bn in _nodes)
-            {
-                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
-                if (bn.GetAdd(deviceId) != null) return;
-            }
-
-            _nodes.Add(new BacNode(addr, deviceId));
-
-            //_timer.SetNext(-1);
-        }
-
     }
     #endregion
 

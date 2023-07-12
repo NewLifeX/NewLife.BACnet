@@ -11,8 +11,13 @@ namespace NewLife.BACnet.Drivers;
 [Driver("BACnet")]
 public class BACnetDriver : DriverBase
 {
+    #region 属性
     private BacClient _client;
+    /// <summary>客户端</summary>
+    public BacClient Client => _client;
+
     private Int32 _nodes;
+    #endregion
 
     #region 构造
     #endregion
@@ -95,8 +100,9 @@ public class BACnetDriver : DriverBase
         lock (_client)
         {
             var p = (node as BACnetNode).Parameter as BACnetParameter;
-            var device = _client.GetNode(p.Address);
-            var dic = _client.Read(device, points);
+            var bacNode = _client.GetNode(p.DeviceId);
+            bacNode ??= _client.GetNode(p.Address);
+            var dic = _client.Read(bacNode, points);
 
             return dic;
         }

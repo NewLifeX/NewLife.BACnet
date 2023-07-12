@@ -12,14 +12,14 @@ XTrace.Log.Level = LogLevel.Debug;
 var services = ObjectContainer.Current;
 var star = services.AddStardust();
 
-var deviceId = 777;
+var deviceId = 666;
 XTrace.WriteLine("BACnet 客户端 deviceId={0}", deviceId);
 
 var client = new BacClient
 {
     //Address = NetHelper.MyIP() + "",
     //Port = 53817,
-    DeviceId = 666,
+    DeviceId = deviceId,
 
     Tracer = star?.Tracer,
     Log = XTrace.Log

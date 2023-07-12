@@ -2,7 +2,6 @@
 using NewLife.IoT;
 using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
-using NewLife.Serialization;
 
 namespace NewLife.BACnet.Drivers;
 
@@ -33,8 +32,7 @@ public class BACnetDriver : DriverBase
     /// <returns></returns>
     public override INode Open(IDevice device, IDriverParameter parameter)
     {
-        var p = parameter as BACnetParameter;
-        if (p == null) return null;
+        if (parameter is not BACnetParameter p) return null;
 
         // 实例化一次Tcp连接
         if (_client == null)
@@ -47,7 +45,7 @@ public class BACnetDriver : DriverBase
                     {
                         Address = p.Address,
                         Port = p.Port,
-                        DeviceId = p.DeviceId
+                        //DeviceId = p.DeviceId
                     };
 
                     // 外部已指定通道时，打开连接
@@ -65,6 +63,7 @@ public class BACnetDriver : DriverBase
             Driver = this,
             Device = device,
             Parameter = p,
+            DeviceId = p.DeviceId,
             Client = _client,
         };
     }

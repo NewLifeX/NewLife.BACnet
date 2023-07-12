@@ -18,6 +18,9 @@ public class BACnetNode : INode
     /// <summary>参数</summary>
     public IDriverParameter Parameter { get; set; }
 
+    /// <summary>设备编号</summary>
+    public Int32 DeviceId { get; set; }
+
     /// <summary>BAC连接</summary>
     public BacClient Client { get; set; }
 }

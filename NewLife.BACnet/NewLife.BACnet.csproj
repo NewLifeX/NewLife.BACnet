@@ -65,9 +65,6 @@
     <PackageReference Include="NewLife.Core" Version="10.4.2023.707" />
     <PackageReference Include="NewLife.IoT" Version="1.8.2023.711" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)'=='net461'">
-    <PackageReference Include="System.IO.Ports" Version="6.0.0" />
-  </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\Doc\leaf.png" Link="leaf.png" PackagePath="\" />

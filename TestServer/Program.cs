@@ -1,10 +1,12 @@
 ﻿using System.IO.BACnet;
+using System.IO.BACnet.Storage;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
 using NewLife.Model;
 using NewLife.Security;
 using NewLife.Threading;
 using Stardust;
+using Object = System.Object;
 
 XTrace.UseConsole();
 #if DEBUG
@@ -31,23 +33,22 @@ server.Open();
 
 var OBJECT_ANALOG_VALUE_0 = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
 var OBJECT_ANALOG_INPUT_0 = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
-Double count = 0;
 
 // 定时改变数据
-var timer = new TimerX(s =>
-{
-    lock (server.Storage)
-    {
-        server.Storage.ReadProperty(OBJECT_ANALOG_VALUE_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, out var valtoread);
-        var coef = Convert.ToDouble(valtoread[0].Value);
-
-        var sin = (Single)(coef * Math.Sin(count));
-        var valtowrite = new[] { new BacnetValue(sin) };
-        server.Storage.WriteProperty(OBJECT_ANALOG_INPUT_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, valtowrite, true);
-    }
-    Thread.Sleep(1000);
-    count += 0.1;
-}, null, 1_000, 1_000)
-{ Async = true };
+var timer = new TimerX(DoCheck, server.Storage, 0, 1_00) { Async = true };
 
 Thread.Sleep(-1);
+
+void DoCheck(Object? state)
+{
+    var ds = state as DeviceStorage;
+    lock (ds)
+    {
+        ds.ReadProperty(OBJECT_ANALOG_VALUE_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, out var valtoread);
+        var coef = Convert.ToDouble(valtoread[0].Value);
+
+        var sin = (Single)(coef * (Rand.Next(0, 1000) - 500));
+        var valtowrite = new[] { new BacnetValue(sin) };
+        ds.WriteProperty(OBJECT_ANALOG_INPUT_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, valtowrite, true);
+    }
+}

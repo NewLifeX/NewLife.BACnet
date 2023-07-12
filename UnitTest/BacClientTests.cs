@@ -1,13 +1,15 @@
-﻿using System;
-using System.IO.BACnet;
+﻿using System.IO.BACnet;
 using System.Threading;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
 using NewLife.UnitTest;
 using Xunit;
 
+[assembly: CollectionBehavior(CollectionBehavior.CollectionPerClass, DisableTestParallelization = true)]
+
 namespace UnitTest;
 
+[Collection("Client")]
 [TestCaseOrderer("NewLife.UnitTest.PriorityOrderer", "NewLife.UnitTest")]
 //[TestCaseOrderer("NewLife.UnitTest.DefaultOrderer", "NewLife.UnitTest")]
 public class BacClientTests
@@ -83,34 +85,53 @@ public class BacClientTests
             XTrace.WriteLine("{0}: {1}", oid, rs);
         }
 
+        for (var i = 0; i < 5; i++)
         {
-            var rr = ObjectPair.TryParse("0_0", out var oid);
-            Assert.True(rr);
+            {
+                var rr = ObjectPair.TryParse("0_0", out var oid);
+                Assert.True(rr);
 
-            var rs = _client.ReadProperty(node.Address, "0_0");
-            Assert.NotNull(rs);
-            XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
-        }
-        {
-            var rr = ObjectPair.TryParse("0_2", out var oid);
-            Assert.True(rr);
+                var rs = _client.ReadProperty(node.Address, "0_0");
+                Assert.NotNull(rs);
+                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
+            }
+            {
+                var rr = ObjectPair.TryParse("0_2", out var oid);
+                Assert.True(rr);
 
-            var rs = _client.ReadProperty(node.Address, "0_2");
-            Assert.NotNull(rs);
-            XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
+                var rs = _client.ReadProperty(node.Address, "0_2");
+                Assert.NotNull(rs);
+                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
+            }
+
+            Thread.Sleep(100);
         }
     }
 
     [Fact]
     [TestOrder(40)]
-    public void ReadPropertyMultiple()
+    public void ReadProperties()
     {
+        _client.Open();
+        Thread.Sleep(500);
+
         var node = _client.GetNode(666);
 
-        _client.GetProperties(node, true);
+        var rr = ObjectPair.TryParse("0_0", out var oid1);
+        rr |= ObjectPair.TryParse("0_2", out var oid2);
 
-        Assert.NotEmpty(node.Ids);
-        Assert.NotEmpty(node.Properties);
+        for (var i = 0; i < 5; i++)
+        {
+            var rs = _client.ReadProperties(node, new[] { oid1, oid2 });
+            Assert.NotNull(rs);
+            Assert.Equal(2, rs.Count);
+            foreach (var item in rs)
+            {
+                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(item.Key), item.Value);
+            }
+
+            Thread.Sleep(100);
+        }
     }
 
     [Fact]

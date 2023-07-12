@@ -36,6 +36,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Base\BacnetNodeTypes.cs" />
+    <Compile Remove="Base\BacnetObjectDescription.cs" />
+    <Compile Remove="Base\BacnetRestartReason.cs" />
+    <Compile Remove="Base\BacnetServicesSupported.cs" />
+    <Compile Remove="Base\BacnetStatusFlags.cs" />
+    <Compile Remove="Base\BacnetWritePriority.cs" />
+    <Compile Remove="Base\Enums\BacnetBackupState.cs" />
+    <Compile Remove="Base\Enums\BacnetEventEnable.cs" />
+    <Compile Remove="Base\Enums\BacnetFileAccessMethod.cs" />
+    <Compile Remove="Base\Enums\BacnetLimitEnable.cs" />
     <Compile Remove="Transport\BacnetTransportEthernet.cs" />
   </ItemGroup>
 

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;netstandard2.0;net461;net45</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <AssemblyTitle>BACnet协议</AssemblyTitle>
     <Description>BACnet楼宇自动化</Description>
     <Company>新生命开发团队</Company>
@@ -64,6 +64,14 @@
   <ItemGroup>
     <PackageReference Include="NewLife.Core" Version="10.4.2023.707" />
     <PackageReference Include="NewLife.IoT" Version="1.8.2023.711" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>

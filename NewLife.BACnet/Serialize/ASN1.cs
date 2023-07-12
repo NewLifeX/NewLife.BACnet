@@ -433,7 +433,7 @@ public class ASN1
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED:
-                encode_application_enumerated(buffer, (uint)(Object)value.Value);
+                encode_application_enumerated(buffer, (uint)(dynamic)value.Value);
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE:
@@ -2145,7 +2145,7 @@ public class ASN1
     public static int decode_enumerated<TEnum>(byte[] buffer, int offset, uint lenValue, out TEnum value)
     {
         var len = decode_enumerated(buffer, offset, lenValue, out var rawValue);
-        value = (TEnum)(Object)rawValue;
+        value = (TEnum)(dynamic)rawValue;
         return len;
     }
 
@@ -2224,8 +2224,8 @@ public class ASN1
     public static int decode_tag_number_and_value<TTag, TValue>(byte[] buffer, int offset, out TTag tag, out TValue value)
     {
         var len = decode_tag_number_and_value(buffer, offset, out var rawByte, out var rawValue);
-        tag = (TTag)(Object)rawByte;
-        value = (TValue)(Object)rawValue;
+        tag = (TTag)(dynamic)rawByte;
+        value = (TValue)(dynamic)rawValue;
         return len;
     }
 

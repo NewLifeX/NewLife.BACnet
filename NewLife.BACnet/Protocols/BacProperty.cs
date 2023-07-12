@@ -36,6 +36,9 @@ public class BacProperty
     /// <returns></returns>
     public static BacProperty Create(BacnetValue bv)
     {
+        if (bv.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
+            throw new XException(bv.Value + "");
+
         var ss = ("" + bv.Value).Split(':');
         if (ss.Length < 2) return null;
 

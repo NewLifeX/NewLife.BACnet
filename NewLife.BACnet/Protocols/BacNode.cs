@@ -13,8 +13,11 @@ public class BacNode
     /// <summary>设备编号</summary>
     public UInt32 DeviceId { get; set; }
 
-    /// <summary>属性</summary>
-    public List<BacProperty> Properties { get; set; } = new();
+    /// <summary>点位集合</summary>
+    public IList<BacnetValue> Ids { get; set; }
+
+    /// <summary>属性集合（包含数值）</summary>
+    public IList<BacProperty> Properties { get; set; }
 
     /// <summary>实例化</summary>
     /// <param name="adr"></param>

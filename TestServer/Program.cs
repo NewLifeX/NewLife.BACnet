@@ -35,7 +35,7 @@ var OBJECT_ANALOG_VALUE_0 = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_V
 var OBJECT_ANALOG_INPUT_0 = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
 
 // 定时改变数据
-var timer = new TimerX(DoCheck, server.Storage, 0, 1_00) { Async = true };
+var timer = new TimerX(DoCheck, server.Storage, 0, 5_000) { Async = true };
 
 Thread.Sleep(-1);
 
@@ -44,10 +44,13 @@ void DoCheck(Object? state)
     var ds = state as DeviceStorage;
     lock (ds)
     {
+        var bv = new[] { new BacnetValue(Rand.Next(1000, 10000)) };
+        ds.WriteProperty(OBJECT_ANALOG_VALUE_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, bv, true);
+
         ds.ReadProperty(OBJECT_ANALOG_VALUE_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, out var valtoread);
         var coef = Convert.ToDouble(valtoread[0].Value);
 
-        var sin = (Single)(coef * (Rand.Next(0, 1000) - 500));
+        var sin = (Single)(coef * Math.Sin(0.1));
         var valtowrite = new[] { new BacnetValue(sin) };
         ds.WriteProperty(OBJECT_ANALOG_INPUT_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, valtowrite, true);
     }

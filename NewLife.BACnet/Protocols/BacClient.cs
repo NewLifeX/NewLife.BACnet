@@ -1,4 +1,5 @@
 ﻿using System.IO.BACnet;
+using System.Security.Cryptography;
 using System.Xml.Linq;
 using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
@@ -256,11 +257,11 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         return null;
     }
 
-    /// <summary>批量读取属性值</summary>
-    /// <param name="node"></param>
+    /// <summary>批量读取多个对象的属性值</summary>
+    /// <param name="addr"></param>
     /// <param name="oids"></param>
     /// <returns></returns>
-    public IDictionary<BacnetObjectId, Object> ReadProperties(BacNode node, IList<BacnetObjectId> oids)
+    public IDictionary<BacnetObjectId, Object> ReadProperties(BacnetAddress addr, IList<BacnetObjectId> oids)
     {
         // 构建属性引用列表
         var prs = new List<BacnetReadAccessSpecification>();
@@ -272,7 +273,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
         // 批量读取属性数值
         var results = new Dictionary<BacnetObjectId, Object>();
-        if (_client.ReadPropertyMultipleRequest(node.Address, prs.ToArray(), out var values))
+        if (_client.ReadPropertyMultipleRequest(addr, prs.ToArray(), out var values))
         {
             foreach (var item in values)
             {
@@ -293,6 +294,49 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         }
 
         return results;
+    }
+
+    /// <summary>写入属性值</summary>
+    /// <param name="addr"></param>
+    /// <param name="oid"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public Boolean WriteProperty(BacnetAddress addr, BacnetObjectId oid, Object value)
+    {
+        var bv = new BacnetValue(value);
+        return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+    }
+
+    /// <summary>写入属性值</summary>
+    /// <param name="addr"></param>
+    /// <param name="id"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public Boolean WriteProperty(BacnetAddress addr, String id, Object value)
+    {
+        if (!ObjectPair.TryParse(id, out var oid)) return false;
+
+        var bv = new BacnetValue(value);
+        return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+    }
+
+    /// <summary>批量写入多个对象的属性值</summary>
+    /// <param name="addr"></param>
+    /// <param name="data"></param>
+    /// <returns></returns>
+    public Boolean WriteProperties(BacnetAddress addr, IDictionary<BacnetObjectId, Object> data)
+    {
+        // 构建属性引用列表
+        var prs = new List<BacnetReadAccessResult>();
+        foreach (var item in data)
+        {
+            var bv = new BacnetValue(item.Value);
+            var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, 0);
+            var bpv = new BacnetPropertyValue { property = property, value = new[] { bv } };
+            prs.Add(new BacnetReadAccessResult(item.Key, new[] { bpv }));
+        }
+
+        return _client.WritePropertyMultipleRequest(addr, prs.ToArray());
     }
 
     /// <summary>读取</summary>

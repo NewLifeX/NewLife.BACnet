@@ -44,6 +44,7 @@ void DoCheck(Object? state)
     var ds = state as DeviceStorage;
     lock (ds)
     {
+        // 写入随机数，方便测试
         var bv = new[] { new BacnetValue(Rand.Next(1000, 10000)) };
         ds.WriteProperty(OBJECT_ANALOG_VALUE_0, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, bv, true);
 

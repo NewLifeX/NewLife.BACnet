@@ -1,4 +1,5 @@
-﻿using NewLife.BACnet.Protocols;
+﻿using System.Security.Cryptography;
+using NewLife.BACnet.Protocols;
 using NewLife.IoT;
 using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
@@ -96,13 +97,43 @@ public class BACnetDriver : DriverBase
     {
         if (points == null || points.Length == 0) return null;
 
+        var p = (node as BACnetNode).Parameter as BACnetParameter;
+        using var span = Tracer?.NewSpan("bac:Read", new { p.Address, points });
+
+        // 点位转为属性。点位地址0_0，前面是编号，后面是类型
+        var ps = new List<ObjectPair>();
+        foreach (var item in points)
+        {
+            if (ObjectPair.TryParse(item.Address, out var oid))
+            {
+                ps.Add(new ObjectPair { Point = item, ObjectId = oid });
+            }
+        }
+        if (ps.Count == 0) return null;
+
         // 加锁，避免冲突
         lock (_client)
         {
-            var p = (node as BACnetNode).Parameter as BACnetParameter;
             var bacNode = _client.GetNode(p.DeviceId);
             bacNode ??= _client.GetNode(p.Address);
-            var dic = _client.Read(bacNode, points);
+
+            var dic = new Dictionary<String, Object>();
+
+            //todo 批量读取还有问题，每次读取到1
+            //var data = _client.ReadProperties(bacNode.Address, ps.Select(e => e.ObjectId).ToArray());
+            //if (data == null) return null;
+
+            //foreach (var item in ps)
+            //{
+            //    if (data.TryGetValue(item.ObjectId, out var v))
+            //        dic[item.Point.Name] = v;
+            //}
+
+            foreach (var item in ps)
+            {
+                var rs = _client.ReadProperty(bacNode.Address, item.ObjectId);
+                if (rs != null) dic[item.Point.Name] = rs;
+            }
 
             return dic;
         }

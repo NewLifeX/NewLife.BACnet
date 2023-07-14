@@ -2,6 +2,8 @@
 using NewLife.BACnet.Drivers;
 using NewLife.IoT;
 using NewLife.IoT.ThingModels;
+using NewLife.Log;
+using NewLife.Serialization;
 using NewLife.UnitTest;
 using Xunit;
 
@@ -88,9 +90,15 @@ public class DriverTests
         var node = driver.Open(dev, _parameter);
         Thread.Sleep(500);
 
-        var point = new PointModel { };
-        var rs = driver.Read(node, new[] { point });
-        Assert.NotNull(rs);
-        Assert.Single(rs);
+        var point = new PointModel { Name = "A_value", Address = "0_2" };
+        for (var i = 0; i < 5; i++)
+        {
+            var rs = driver.Read(node, new[] { point });
+            Assert.NotNull(rs);
+            Assert.Single(rs);
+            XTrace.WriteLine(rs.ToJson());
+
+            Thread.Sleep(100);
+        }
     }
 }

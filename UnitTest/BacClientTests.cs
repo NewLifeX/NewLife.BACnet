@@ -17,12 +17,13 @@ namespace UnitTest;
 //[TestCaseOrderer("NewLife.UnitTest.DefaultOrderer", "NewLife.UnitTest")]
 public class BacClientTests
 {
+    static Int32 _DeviceId = 6785;
     static readonly BacClient _client;
     static BacClientTests()
     {
         _client = new BacClient
         {
-            DeviceId = 666,
+            DeviceId = _DeviceId,
 
             Log = XTrace.Log
         };
@@ -56,14 +57,16 @@ public class BacClientTests
         var nodes = _client.Nodes;
         Assert.True(nodes.Count > 0);
 
-        var node = _client.GetNode(666);
+        var node = _client.GetNode(_DeviceId);
         Assert.NotNull(node);
 
         var addr = node.Address + "";
         Assert.NotEmpty(addr);
+        XTrace.WriteLine("addr: {0}", addr);
 
         node = _client.GetNode(addr);
         Assert.NotNull(node);
+        XTrace.WriteLine("node: {0}", node);
     }
 
     [Fact]
@@ -73,8 +76,9 @@ public class BacClientTests
         _client.Open();
         Thread.Sleep(500);
 
-        var node = _client.GetNode(666);
+        var node = _client.GetNode(_DeviceId);
 
+        XTrace.WriteLine("按类型和实例读取属性数据");
         {
             var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
             var rs = _client.ReadProperty(node.Address, oid);
@@ -88,6 +92,7 @@ public class BacClientTests
             XTrace.WriteLine("{0}: {1}", oid, rs);
         }
 
+        XTrace.WriteLine("按名称读取属性数据");
         for (var i = 0; i < 5; i++)
         {
             {
@@ -118,11 +123,12 @@ public class BacClientTests
         _client.Open();
         Thread.Sleep(500);
 
-        var node = _client.GetNode(666);
+        var node = _client.GetNode(_DeviceId);
 
         var rr = ObjectPair.TryParse("0_0", out var oid1);
         rr |= ObjectPair.TryParse("0_2", out var oid2);
 
+        XTrace.WriteLine("批量读取属性数据");
         for (var i = 0; i < 5; i++)
         {
             var rs = _client.ReadProperties(node.Address, new[] { oid1, oid2 });
@@ -142,7 +148,31 @@ public class BacClientTests
     [TestOrder(50)]
     public void GetProperties()
     {
-        var node = _client.GetNode(666);
+        _client.Open();
+        Thread.Sleep(500);
+
+        var node = _client.GetNode(_DeviceId);
+
+        XTrace.WriteLine("GetProperties: {0}", node);
+        _client.GetProperties(node, false);
+
+        Assert.NotEmpty(node.Ids);
+        Assert.Null(node.Properties);
+
+        foreach (var item in node.Ids)
+        {
+            XTrace.WriteLine("{0}: {1}", item, item);
+        }
+    }
+
+    [Fact]
+    [TestOrder(52)]
+    public void GetProperties2()
+    {
+        _client.Open();
+        Thread.Sleep(500);
+
+        var node = _client.GetNode(_DeviceId);
 
         _client.GetProperties(node, true);
 
@@ -157,7 +187,7 @@ public class BacClientTests
         _client.Open();
         Thread.Sleep(500);
 
-        var node = _client.GetNode(666);
+        var node = _client.GetNode(_DeviceId);
 
         var v = (UInt32)Rand.Next(1000, 10000);
         {
@@ -196,7 +226,7 @@ public class BacClientTests
         _client.Open();
         Thread.Sleep(500);
 
-        var node = _client.GetNode(666);
+        var node = _client.GetNode(_DeviceId);
 
         var rr = ObjectPair.TryParse("0_0", out var oid1);
         rr |= ObjectPair.TryParse("0_2", out var oid2);

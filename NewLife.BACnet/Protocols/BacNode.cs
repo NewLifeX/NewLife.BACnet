@@ -32,4 +32,8 @@ public class BacNode
     /// <param name="deviceId"></param>
     /// <returns></returns>
     public BacnetAddress GetAdd(UInt32 deviceId) => DeviceId == deviceId ? Address : null;
+
+    /// <summary>已重载。</summary>
+    /// <returns></returns>
+    public override String ToString() => $"[{DeviceId}]{Address}";
 }

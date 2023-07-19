@@ -14,7 +14,7 @@ public class BacNode
     public UInt32 DeviceId { get; set; }
 
     /// <summary>点位集合</summary>
-    public IList<BacnetValue> Ids { get; set; }
+    public IList<BacnetObjectId> Ids { get; set; }
 
     /// <summary>属性集合（包含数值）</summary>
     public IList<BacProperty> Properties { get; set; }

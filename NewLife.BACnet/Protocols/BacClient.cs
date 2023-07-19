@@ -186,7 +186,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
         if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
         {
-            node.Ids = list;
+            node.Ids = list
+                .Where(e => e.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
+                .Select(e => (BacnetObjectId)e.Value).ToList();
 
             if (includeValue) GetValues(node);
         }

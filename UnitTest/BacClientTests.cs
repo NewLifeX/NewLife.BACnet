@@ -17,7 +17,7 @@ namespace UnitTest;
 //[TestCaseOrderer("NewLife.UnitTest.DefaultOrderer", "NewLife.UnitTest")]
 public class BacClientTests
 {
-    static Int32 _DeviceId = 6785;
+    static Int32 _DeviceId = 0;
     static readonly BacClient _client;
     static BacClientTests()
     {
@@ -50,12 +50,13 @@ public class BacClientTests
     [TestOrder(20)]
     public void GetNode()
     {
-        //_client.Open();
-
+        _client.Open();
         Thread.Sleep(500);
 
         var nodes = _client.Nodes;
         Assert.True(nodes.Count > 0);
+
+        if (_DeviceId == 0) _DeviceId = (Int32)nodes[0].DeviceId;
 
         var node = _client.GetNode(_DeviceId);
         Assert.NotNull(node);
@@ -161,7 +162,8 @@ public class BacClientTests
 
         foreach (var item in node.Ids)
         {
-            XTrace.WriteLine("{0}: {1}", item, item);
+            var id = ObjectPair.ToObjectId(item);
+            XTrace.WriteLine("{0}: {1}", id, item);
         }
     }
 

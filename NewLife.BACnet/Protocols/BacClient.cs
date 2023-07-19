@@ -177,8 +177,8 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
     /// <summary>获取节点属性列表</summary>
     /// <param name="node">节点</param>
-    /// <param name="includeValue">是否包含数值</param>
-    public void GetProperties(BacNode node, Boolean includeValue)
+    /// <param name="isFull">是否包含完整信息，例如数值等</param>
+    public void GetProperties(BacNode node, Boolean isFull)
     {
         if (node.Address == null) return;
 
@@ -190,7 +190,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
                 .Where(e => e.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
                 .Select(e => (BacnetObjectId)e.Value).ToList();
 
-            if (includeValue) GetValues(node);
+            if (isFull) GetDetail(node);
         }
     }
 
@@ -217,6 +217,43 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
             if (batch.Count == 0) break;
 
             if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
+            {
+                var ps = BacProperty.Create(results);
+                list2.AddRange(ps);
+            }
+
+            i += batch.Count;
+        }
+        node.Properties = list2;
+    }
+
+    /// <summary>获取节点的详细信息</summary>
+    /// <param name="node"></param>
+    public void GetDetail(BacNode node)
+    {
+        if (node.Address == null || node.Ids == null) return;
+
+        // 构建属性引用列表
+        var prs = new List<BacnetReadAccessSpecification>();
+        for (var i = 0; i < node.Ids.Count; i++)
+        {
+            var ps = new BacnetPropertyReference[] {
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_NAME, 0),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, 0),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_TYPE, 0),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_DESCRIPTION, 0),
+            };
+            prs.Add(new BacnetReadAccessSpecification(node.Ids[i], ps));
+        }
+
+        // 分批读取属性详细信息
+        var list2 = new List<BacProperty>();
+        for (var i = 0; i < node.Ids.Count;)
+        {
+            var batch = prs.Skip(i).Take(16).ToList();
+            if (batch.Count == 0) break;
+
+            if (_client.ReadPropertyMultipleRequest(node.Address, batch, out var results))
             {
                 var ps = BacProperty.Create(results);
                 list2.AddRange(ps);

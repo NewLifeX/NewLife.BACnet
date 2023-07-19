@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using NewLife;
 
 namespace System.IO.BACnet;
 
@@ -68,17 +69,30 @@ public struct BacnetObjectId : IComparable<BacnetObjectId>
 
     public static BacnetObjectId Parse(string value)
     {
-        var pattern = new Regex($"(?<{nameof(Type)}>.+):(?<{nameof(Instance)}>.+)");
+        if (value.IsNullOrEmpty()) return default;
 
-        if (string.IsNullOrEmpty(value) || !pattern.IsMatch(value))
-            return new BacnetObjectId();
+        if (value.Contains('_'))
+        {
+            var ss = value.Split('_');
+            var objectType = (BacnetObjectTypes)Enum.Parse(typeof(BacnetObjectTypes), ss[1]);
+            var objectInstance = uint.Parse(ss[0]);
+            return new BacnetObjectId(objectType, objectInstance);
+        }
+        else
+        {
+            var pattern = new Regex($"(?<{nameof(Type)}>.+):(?<{nameof(Instance)}>.+)");
 
-        var objectType = (BacnetObjectTypes)Enum.Parse(typeof(BacnetObjectTypes),
-            pattern.Match(value).Groups[nameof(Type)].Value);
+            if (string.IsNullOrEmpty(value) || !pattern.IsMatch(value))
+                return new BacnetObjectId();
 
-        var objectInstance = uint.Parse(pattern.Match(value).Groups[nameof(Instance)].Value);
+            var objectType = (BacnetObjectTypes)Enum.Parse(typeof(BacnetObjectTypes),
+                pattern.Match(value).Groups[nameof(Type)].Value);
 
-        return new BacnetObjectId(objectType, objectInstance);
+            var objectInstance = uint.Parse(pattern.Match(value).Groups[nameof(Instance)].Value);
+
+            return new BacnetObjectId(objectType, objectInstance);
+        }
     }
 
+    public String GetKey() => $"{instance}_{(Int32)type}";
 };

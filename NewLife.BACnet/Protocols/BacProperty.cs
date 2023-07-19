@@ -30,14 +30,22 @@ public class BacProperty
     public Type Type { get; set; }
     #endregion
 
+    #region 构造
+    /// <summary>已重载。</summary>
+    /// <returns></returns>
+    public override String ToString() => $"[{ObjectId.GetKey()}]{Name}";
+    #endregion
+
     #region 方法
     /// <summary>创建属性</summary>
     /// <param name="bv"></param>
     /// <returns></returns>
     public static BacProperty Create(BacnetValue bv)
     {
+        //if (bv.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
+        //    throw new XException(bv.Value + "");
         if (bv.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
-            throw new XException(bv.Value + "");
+            return null;
 
         var ss = ("" + bv.Value).Split(':');
         if (ss.Length < 2) return null;
@@ -78,13 +86,17 @@ public class BacProperty
 
         foreach (var rs in results)
         {
-            foreach (var item in rs.values)
-            {
-                foreach (var elm in Create(item))
-                {
-                    yield return elm;
-                }
-            }
+            var bp = new BacProperty { ObjectId = rs.objectIdentifier };
+            bp.Fill(rs);
+            yield return bp;
+
+            //foreach (var item in rs.values)
+            //{
+            //    foreach (var elm in Create(item))
+            //    {
+            //        yield return elm;
+            //    }
+            //}
         }
     }
 

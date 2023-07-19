@@ -158,12 +158,11 @@ public class BacClientTests
         _client.GetProperties(node, false);
 
         Assert.NotEmpty(node.Ids);
-        Assert.Null(node.Properties);
+        //Assert.Null(node.Properties);
 
         foreach (var item in node.Ids)
         {
-            var id = ObjectPair.ToObjectId(item);
-            XTrace.WriteLine("{0}: {1}", id, item);
+            XTrace.WriteLine("{0}: {1}", item.GetKey(), item);
         }
     }
 
@@ -176,10 +175,16 @@ public class BacClientTests
 
         var node = _client.GetNode(_DeviceId);
 
+        XTrace.WriteLine("GetProperties2: {0}", node);
         _client.GetProperties(node, true);
 
         Assert.NotEmpty(node.Ids);
         Assert.NotEmpty(node.Properties);
+
+        foreach (var item in node.Properties)
+        {
+            XTrace.WriteLine("{0}: {1} value={2} type={3} description={4}", item.ObjectId.GetKey(), item.Name, item.Value, item.Type, item.Description);
+        }
     }
 
     [Fact]

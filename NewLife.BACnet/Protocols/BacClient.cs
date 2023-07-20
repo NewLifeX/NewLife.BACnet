@@ -25,6 +25,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <summary>目标设备编号。仅处理该节点，默认0接受所有节点</summary>
     public Int32 DeviceId { get; set; }
 
+    /// <summary>批大小。分批读取点位属性的批大小，默认20</summary>
+    public Int32 BatchSize { get; set; } = 20;
+
     /// <summary>是否活跃</summary>
     public Boolean Active { get; set; }
 
@@ -183,13 +186,10 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         if (node.Address == null) return;
 
         // 读取属性对象列表，点位列表
+        //todo 如果设备下有很多对象，可能数据包超大，需要分批读取
         var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
         if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
         {
-            //node.Ids = list
-            //    .Where(e => e.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
-            //    .Select(e => (BacnetObjectId)e.Value).ToList();
-
             var ps = new List<BacProperty>();
             foreach (var item in list)
             {
@@ -225,7 +225,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
         for (var i = 0; i < properties.Count;)
         {
-            var batch = prs.Skip(i).Take(16).ToList();
+            var batch = prs.Skip(i).Take(BatchSize).ToList();
             if (batch.Count == 0) break;
 
             if (_client.ReadPropertyMultipleRequest(node.Address, oid, batch, out var results))
@@ -264,7 +264,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         // 分批读取属性详细信息
         for (var i = 0; i < properties.Count;)
         {
-            var batch = prs.Skip(i).Take(16).ToList();
+            var batch = prs.Skip(i).Take(BatchSize).ToList();
             if (batch.Count == 0) break;
 
             if (_client.ReadPropertyMultipleRequest(addr, batch, out var results))

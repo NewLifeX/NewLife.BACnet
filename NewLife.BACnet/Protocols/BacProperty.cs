@@ -10,11 +10,6 @@ public class BacProperty
     public BacnetObjectId ObjectId { get; set; }
 
     /// <summary>
-    /// 描述
-    /// </summary>
-    public String Description { get; set; }
-
-    /// <summary>
     /// 点名
     /// </summary>
     public String Name { get; set; }
@@ -28,12 +23,30 @@ public class BacProperty
     /// 值类型
     /// </summary>
     public Type Type { get; set; }
+
+    /// <summary>
+    /// 描述
+    /// </summary>
+    public String Description { get; set; }
     #endregion
 
     #region 构造
+    /// <summary>实例化</summary>
+    public BacProperty() { }
+
+    /// <summary>实例化</summary>
+    /// <param name="objectId"></param>
+    public BacProperty(BacnetObjectId objectId)
+    {
+        ObjectId = objectId;
+
+        Name = objectId.GetKey();
+        Type = Parse(objectId.Type);
+    }
+
     /// <summary>已重载。</summary>
     /// <returns></returns>
-    public override String ToString() => $"[{ObjectId.GetKey()}]{Name}";
+    public override String ToString() => Name ?? ObjectId.GetKey();
     #endregion
 
     #region 方法
@@ -108,20 +121,170 @@ public class BacProperty
         {
             if (elm.value == null || elm.value.Count == 0) continue;
 
+            var bv = elm.value[0];
+            if (bv.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
+                continue;
+
             switch ((BacnetPropertyIds)elm.property.propertyIdentifier)
             {
                 case BacnetPropertyIds.PROP_DESCRIPTION:
-                    Description = elm.value[0].ToString()?.Trim();
+                    Description = bv.ToString()?.Trim();
                     break;
                 case BacnetPropertyIds.PROP_OBJECT_NAME:
-                    Name = elm.value[0].ToString()?.Trim();
+                    Name = bv.ToString()?.Trim();
                     break;
                 case BacnetPropertyIds.PROP_PRESENT_VALUE:
-                    Value = elm.value[0].Value;
-                    Type = elm.value[0].Value.GetType();
+                    Value = bv.Value;
+                    Type ??= bv.Value.GetType();
+                    break;
+                case BacnetPropertyIds.PROP_OBJECT_TYPE:
                     break;
             }
         }
+    }
+
+    private static Type Parse(BacnetObjectTypes type)
+    {
+        switch (type)
+        {
+            case BacnetObjectTypes.OBJECT_ANALOG_INPUT:
+            case BacnetObjectTypes.OBJECT_ANALOG_OUTPUT:
+            case BacnetObjectTypes.OBJECT_ANALOG_VALUE:
+                return typeof(Double);
+            case BacnetObjectTypes.OBJECT_BINARY_INPUT:
+            case BacnetObjectTypes.OBJECT_BINARY_OUTPUT:
+            case BacnetObjectTypes.OBJECT_BINARY_VALUE:
+                return typeof(Boolean);
+            case BacnetObjectTypes.OBJECT_CALENDAR:
+                break;
+            case BacnetObjectTypes.OBJECT_COMMAND:
+                return typeof(UInt32);
+            case BacnetObjectTypes.OBJECT_DEVICE:
+                break;
+            case BacnetObjectTypes.OBJECT_EVENT_ENROLLMENT:
+                break;
+            case BacnetObjectTypes.OBJECT_FILE:
+                break;
+            case BacnetObjectTypes.OBJECT_GROUP:
+                break;
+            case BacnetObjectTypes.OBJECT_LOOP:
+                break;
+            case BacnetObjectTypes.OBJECT_MULTI_STATE_INPUT:
+            case BacnetObjectTypes.OBJECT_MULTI_STATE_OUTPUT:
+                return typeof(UInt32);
+            case BacnetObjectTypes.OBJECT_NOTIFICATION_CLASS:
+                break;
+            case BacnetObjectTypes.OBJECT_PROGRAM:
+                break;
+            case BacnetObjectTypes.OBJECT_SCHEDULE:
+                break;
+            case BacnetObjectTypes.OBJECT_AVERAGING:
+                break;
+            case BacnetObjectTypes.OBJECT_MULTI_STATE_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_TRENDLOG:
+                break;
+            case BacnetObjectTypes.OBJECT_LIFE_SAFETY_POINT:
+                break;
+            case BacnetObjectTypes.OBJECT_LIFE_SAFETY_ZONE:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCUMULATOR:
+                break;
+            case BacnetObjectTypes.OBJECT_PULSE_CONVERTER:
+                break;
+            case BacnetObjectTypes.OBJECT_EVENT_LOG:
+                break;
+            case BacnetObjectTypes.OBJECT_GLOBAL_GROUP:
+                break;
+            case BacnetObjectTypes.OBJECT_TREND_LOG_MULTIPLE:
+                break;
+            case BacnetObjectTypes.OBJECT_LOAD_CONTROL:
+                break;
+            case BacnetObjectTypes.OBJECT_STRUCTURED_VIEW:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_DOOR:
+                break;
+            case BacnetObjectTypes.OBJECT_TIMER:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_CREDENTIAL:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_POINT:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_RIGHTS:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_USER:
+                break;
+            case BacnetObjectTypes.OBJECT_ACCESS_ZONE:
+                break;
+            case BacnetObjectTypes.OBJECT_CREDENTIAL_DATA_INPUT:
+                break;
+            case BacnetObjectTypes.OBJECT_NETWORK_SECURITY:
+                break;
+            case BacnetObjectTypes.OBJECT_BITSTRING_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_CHARACTERSTRING_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_DATE_PATTERN_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_DATE_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_DATETIME_PATTERN_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_DATETIME_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_INTEGER_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_LARGE_ANALOG_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_OCTETSTRING_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_POSITIVE_INTEGER_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_TIME_PATTERN_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_TIME_VALUE:
+                break;
+            case BacnetObjectTypes.OBJECT_NOTIFICATION_FORWARDER:
+                break;
+            case BacnetObjectTypes.OBJECT_ALERT_ENROLLMENT:
+                break;
+            case BacnetObjectTypes.OBJECT_CHANNEL:
+                break;
+            case BacnetObjectTypes.OBJECT_LIGHTING_OUTPUT:
+                break;
+            case BacnetObjectTypes.OBJECT_BINARY_LIGHTING_OUTPUT:
+                break;
+            case BacnetObjectTypes.OBJECT_NETWORK_PORT:
+                break;
+            case BacnetObjectTypes.OBJECT_ELEVATOR_GROUP:
+                break;
+            case BacnetObjectTypes.OBJECT_ESCALATOR:
+                break;
+            case BacnetObjectTypes.OBJECT_LIFT:
+                break;
+            case BacnetObjectTypes.OBJECT_STAGING:
+                break;
+            case BacnetObjectTypes.OBJECT_AUDIT_LOG:
+                break;
+            case BacnetObjectTypes.OBJECT_AUDIT_REPORTER:
+                break;
+            case BacnetObjectTypes.OBJECT_COLOR:
+                break;
+            case BacnetObjectTypes.OBJECT_COLOR_TEMPERATURE:
+                break;
+            case BacnetObjectTypes.OBJECT_PROPRIETARY_MIN:
+                break;
+            case BacnetObjectTypes.OBJECT_PROPRIETARY_MAX:
+                break;
+            case BacnetObjectTypes.MAX_BACNET_OBJECT_TYPE:
+                break;
+            case BacnetObjectTypes.MAX_ASHRAE_OBJECT_TYPE:
+                break;
+            default:
+                break;
+        }
+
+        return null;
     }
     #endregion
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO.BACnet;
 using System.Threading;
+using NewLife;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
 using NewLife.Security;
@@ -157,12 +158,11 @@ public class BacClientTests
         XTrace.WriteLine("GetProperties: {0}", node);
         _client.GetProperties(node, false);
 
-        Assert.NotEmpty(node.Ids);
-        //Assert.Null(node.Properties);
+        Assert.NotEmpty(node.Properties);
 
-        foreach (var item in node.Ids)
+        foreach (var item in node.Properties)
         {
-            XTrace.WriteLine("{0}: {1}", item.GetKey(), item);
+            XTrace.WriteLine("{0}: {1}", item.ObjectId.GetKey(), item);
         }
     }
 
@@ -178,12 +178,11 @@ public class BacClientTests
         XTrace.WriteLine("GetProperties2: {0}", node);
         _client.GetProperties(node, true);
 
-        Assert.NotEmpty(node.Ids);
         Assert.NotEmpty(node.Properties);
 
         foreach (var item in node.Properties)
         {
-            XTrace.WriteLine("{0}: {1} value={2} type={3} description={4}", item.ObjectId.GetKey(), item.Name, item.Value, item.Type, item.Description);
+            XTrace.WriteLine("{0}: {1} value={2} type={3} description={4}", item.ObjectId.GetKey(), item.Name, item.Value, item.Type?.FullName?.TrimStart("System."), item.Description);
         }
     }
 

@@ -71,11 +71,11 @@ public struct BacnetObjectId : IComparable<BacnetObjectId>
     {
         if (value.IsNullOrEmpty()) return default;
 
-        if (value.Contains('_'))
+        if (value.Contains("_"))
         {
             var ss = value.Split('_');
             var objectType = (BacnetObjectTypes)Enum.Parse(typeof(BacnetObjectTypes), ss[1]);
-            var objectInstance = uint.Parse(ss[0]);
+            var objectInstance = UInt32.Parse(ss[0]);
             return new BacnetObjectId(objectType, objectInstance);
         }
         else

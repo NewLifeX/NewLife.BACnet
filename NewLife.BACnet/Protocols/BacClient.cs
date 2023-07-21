@@ -323,33 +323,61 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         var prs = new List<BacnetReadAccessSpecification>();
         for (var i = 0; i < oids.Count; i++)
         {
-            var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, 0);
-            prs.Add(new BacnetReadAccessSpecification(oids[i], new[] { property }));
+            //var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue);
+            var ps = new BacnetPropertyReference[] {
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue),
+            };
+            prs.Add(new BacnetReadAccessSpecification(oids[i], ps));
         }
 
-        // 批量读取属性数值
+        // 分批读取属性数值
         var results = new Dictionary<BacnetObjectId, Object>();
-        if (_client.ReadPropertyMultipleRequest(addr, prs.ToArray(), out var values))
+        for (var i = 0; i < prs.Count;)
         {
-            foreach (var item in values)
+            var batch = prs.Skip(i).Take(BatchSize).ToList();
+            if (batch.Count == 0) break;
+
+            if (_client.ReadPropertyMultipleRequest(addr, batch, out var values))
             {
-                foreach (var elm in item.values)
+                foreach (var item in values)
                 {
-                    if (elm.value == null || elm.value.Count == 0) continue;
-
-                    if ((BacnetPropertyIds)elm.property.propertyIdentifier == BacnetPropertyIds.PROP_PRESENT_VALUE)
+                    foreach (var elm in item.values)
                     {
-                        var bv = elm.value[0];
-                        if (bv.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
-                            throw new XException(bv.Value + "");
+                        if (elm.value == null || elm.value.Count == 0) continue;
 
-                        results[item.objectIdentifier] = bv.Value;
+                        if ((BacnetPropertyIds)elm.property.propertyIdentifier == BacnetPropertyIds.PROP_PRESENT_VALUE)
+                        {
+                            var bv = elm.value[0];
+                            if (bv.Tag != BacnetApplicationTags.BACNET_APPLICATION_TAG_ERROR)
+                                results[item.objectIdentifier] = bv.Value;
+                        }
                     }
                 }
             }
+
+            i += batch.Count;
         }
 
         return results;
+    }
+
+    /// <summary>批量读取多个对象的属性值</summary>
+    /// <param name="addr"></param>
+    /// <param name="oids"></param>
+    /// <returns></returns>
+    public IDictionary<String, Object> ReadProperties(BacnetAddress addr, String[] oids)
+    {
+        var dic = new Dictionary<String, Object>();
+        var rs = ReadProperties(addr, oids.Select(e => BacnetObjectId.Parse(e)).ToList());
+        if (rs != null)
+        {
+            foreach (var item in rs)
+            {
+                dic[item.Key.GetKey()] = item.Value;
+            }
+        }
+
+        return dic;
     }
 
     /// <summary>写入属性值</summary>

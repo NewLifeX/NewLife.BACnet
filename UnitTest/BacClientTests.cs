@@ -103,7 +103,7 @@ public class BacClientTests
 
                 var rs = _client.ReadProperty(node.Address, "0_0");
                 Assert.NotNull(rs);
-                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
+                XTrace.WriteLine("{0}: {1}", oid.GetKey(), rs);
             }
             {
                 var rr = ObjectPair.TryParse("0_2", out var oid);
@@ -111,7 +111,7 @@ public class BacClientTests
 
                 var rs = _client.ReadProperty(node.Address, "0_2");
                 Assert.NotNull(rs);
-                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(oid), rs);
+                XTrace.WriteLine("{0}: {1}", oid.GetKey(), rs);
             }
 
             Thread.Sleep(100);
@@ -127,10 +127,10 @@ public class BacClientTests
 
         var node = _client.GetNode(_DeviceId);
 
-        var rr = ObjectPair.TryParse("0_0", out var oid1);
-        rr |= ObjectPair.TryParse("0_2", out var oid2);
+        var oid1 = node.Properties[2].ObjectId;
+        var oid2 = node.Properties[3].ObjectId;
 
-        XTrace.WriteLine("批量读取属性数据");
+        XTrace.WriteLine("按类型实例批量读取属性数据");
         for (var i = 0; i < 5; i++)
         {
             var rs = _client.ReadProperties(node.Address, new[] { oid1, oid2 });
@@ -138,7 +138,22 @@ public class BacClientTests
             Assert.Equal(2, rs.Count);
             foreach (var item in rs)
             {
-                XTrace.WriteLine("{0}: {1}", ObjectPair.ToObjectId(item.Key), item.Value);
+                XTrace.WriteLine("{0}: {1}", item.Key.GetKey(), item.Value);
+                Assert.True(item.Value.ToDouble() > 0);
+            }
+
+            Thread.Sleep(100);
+        }
+
+        XTrace.WriteLine("按名字批量读取属性数据");
+        for (var i = 0; i < 5; i++)
+        {
+            var rs = _client.ReadProperties(node.Address, new[] { oid1.GetKey(), oid2.GetKey() });
+            Assert.NotNull(rs);
+            Assert.Equal(2, rs.Count);
+            foreach (var item in rs)
+            {
+                XTrace.WriteLine("{0}: {1}", item.Key, item.Value);
                 Assert.True(item.Value.ToDouble() > 0);
             }
 
@@ -162,7 +177,7 @@ public class BacClientTests
 
         foreach (var item in node.Properties)
         {
-            XTrace.WriteLine("{0}: {1}", item.ObjectId.GetKey(), item);
+            XTrace.WriteLine("{0}: {1}", item, item.Name);
         }
     }
 

@@ -182,7 +182,7 @@ public class BacClientTests
 
         foreach (var item in node.Properties)
         {
-            XTrace.WriteLine("{0}: {1} value={2} type={3} description={4}", item.ObjectId.GetKey(), item.Name, item.Value, item.Type?.FullName?.TrimStart("System."), item.Description);
+            XTrace.WriteLine("{0}: \tvalue={1} \ttype={2} \tname={3} \tdescription={4}", item.ObjectId.GetKey(), item.Value, item.Type?.FullName?.TrimStart("System."), item.Name, item.Description);
         }
     }
 

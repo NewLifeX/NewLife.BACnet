@@ -255,10 +255,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         for (var i = 0; i < properties.Count; i++)
         {
             var ps = new BacnetPropertyReference[] {
-                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_NAME, 0),
-                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, 0),
-                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_TYPE, 0),
-                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_DESCRIPTION, 0),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_OBJECT_NAME, UInt32.MaxValue),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, UInt32.MaxValue),
+                new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_DESCRIPTION, UInt32.MaxValue),
             };
             prs.Add(new BacnetReadAccessSpecification(properties[i].ObjectId, ps));
         }

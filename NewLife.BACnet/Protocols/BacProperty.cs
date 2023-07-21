@@ -137,8 +137,6 @@ public class BacProperty
                     Value = bv.Value;
                     Type ??= bv.Value.GetType();
                     break;
-                case BacnetPropertyIds.PROP_OBJECT_TYPE:
-                    break;
             }
         }
     }

@@ -196,7 +196,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
                 if (item.Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
                 {
                     var oid2 = (BacnetObjectId)item.Value;
-                    ps.Add(new BacProperty(oid2));
+                    if (oid2.type != BacnetObjectTypes.OBJECT_DEVICE &&
+                        oid2.type != BacnetObjectTypes.OBJECT_NOTIFICATION_CLASS)
+                        ps.Add(new BacProperty(oid2));
                 }
             }
 

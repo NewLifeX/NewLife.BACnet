@@ -150,7 +150,7 @@ public class BacProperty
             case BacnetObjectTypes.OBJECT_ANALOG_INPUT:
             case BacnetObjectTypes.OBJECT_ANALOG_OUTPUT:
             case BacnetObjectTypes.OBJECT_ANALOG_VALUE:
-                return typeof(Double);
+                return typeof(Single);
             case BacnetObjectTypes.OBJECT_BINARY_INPUT:
             case BacnetObjectTypes.OBJECT_BINARY_OUTPUT:
             case BacnetObjectTypes.OBJECT_BINARY_VALUE:

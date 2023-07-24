@@ -210,7 +210,8 @@ public class BacClientTests
 
         var node = _client.GetNode(_DeviceId);
 
-        var v = (UInt32)Rand.Next(1000, 10000);
+        XTrace.WriteLine("WriteProperty: {0}", node);
+        var v = Rand.Next(1000, 10000) / 10f;
         {
             var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
             Assert.Throws<Exception>(() => _client.WriteProperty(node.Address, oid, v));
@@ -226,9 +227,10 @@ public class BacClientTests
 
         for (var i = 0; i < 5; i++)
         {
-            v = (UInt32)Rand.Next(1000, 10000);
+            v = Rand.Next(1000, 10000) / 10f;
             {
                 var id = "0_2";
+                XTrace.WriteLine("{0}={1}", id, v);
                 var rr = _client.WriteProperty(node.Address, id, v);
                 Assert.True(rr);
 
@@ -249,17 +251,20 @@ public class BacClientTests
 
         var node = _client.GetNode(_DeviceId);
 
-        var rr = ObjectPair.TryParse("0_0", out var oid1);
+        var rr = ObjectPair.TryParse("1_2", out var oid1);
         rr |= ObjectPair.TryParse("0_2", out var oid2);
         Assert.True(rr);
 
+        XTrace.WriteLine("WriteProperties: {0}", node);
         for (var i = 0; i < 5; i++)
         {
             var data = new Dictionary<BacnetObjectId, Object>
             {
-                [oid1] = Rand.Next(1000, 10000) / 10d,
-                [oid2] = Rand.Next(1000, 10000) / 10d,
+                [oid1] = Rand.Next(1000, 10000) / 10f,
+                [oid2] = Rand.Next(1000, 10000) / 10f,
             };
+
+            XTrace.WriteLine("{0}={1}, {2}={3}", oid1, data[oid1], oid2, data[oid2]);
 
             var rs = _client.WriteProperties(node.Address, data);
             Assert.True(rs);

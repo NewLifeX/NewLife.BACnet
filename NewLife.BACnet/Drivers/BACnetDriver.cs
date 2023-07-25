@@ -3,6 +3,7 @@ using NewLife.BACnet.Protocols;
 using NewLife.IoT;
 using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
+using NewLife.Reflection;
 
 namespace NewLife.BACnet.Drivers;
 
@@ -49,8 +50,10 @@ public class BACnetDriver : DriverBase
                 {
                     var client = new BacClient
                     {
-                        Address = p.Address,
+                        //Address = p.Address,
                         Port = p.Port,
+
+                        // 这里不指定设备，自动搜索网络中所有设备，以便支持多个设备
                         //DeviceId = p.DeviceId
                     };
 
@@ -98,7 +101,7 @@ public class BACnetDriver : DriverBase
         if (points == null || points.Length == 0) return null;
 
         var p = (node as BACnetNode).Parameter as BACnetParameter;
-        using var span = Tracer?.NewSpan("bac:Read", new { p.Address, points });
+        using var span = Tracer?.NewSpan("bac:Read", new { p.DeviceId, points });
 
         // 点位转为属性。点位地址0_0，前面是编号，后面是类型
         var ps = new List<ObjectPair>();
@@ -115,7 +118,7 @@ public class BACnetDriver : DriverBase
         lock (_client)
         {
             var bacNode = _client.GetNode(p.DeviceId);
-            bacNode ??= _client.GetNode(p.Address);
+            //bacNode ??= _client.GetNode(p.Address);
 
             var dic = new Dictionary<String, Object>();
 
@@ -148,7 +151,19 @@ public class BACnetDriver : DriverBase
     public override Object Write(INode node, IPoint point, Object value)
     {
         var p = (node as BACnetNode).Parameter as BACnetParameter;
-        return _client.Write(p.Address, point, value);
+        var bnode = _client.GetNode(p.DeviceId);
+
+        // 优先使用地址，其次名称
+        var id = !point.Address.IsNullOrEmpty() ? point.Address : point.Name;
+
+        // 根据属性转换数据类型
+        var property = bnode.Properties.FirstOrDefault(e => e.Name == id);
+        if (property != null)
+        {
+            value = value.ChangeType(property.Type);
+        }
+
+        return _client.WriteProperty(bnode.Address, id, value);
     }
     #endregion
 }

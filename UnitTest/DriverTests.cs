@@ -21,7 +21,7 @@ public class DriverTests
 
         _parameter = new BACnetParameter
         {
-            Address = "127.0.0.1",
+            //Address = "127.0.0.1",
             Port = 47808,
             DeviceId = 666,
         };

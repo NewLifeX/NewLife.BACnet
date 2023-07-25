@@ -22,6 +22,9 @@ public class BacClientTests
     static readonly BacClient _client;
     static BacClientTests()
     {
+#if DEBUG
+        XTrace.Log.Level = LogLevel.Debug;
+#endif
         _client = new BacClient
         {
             DeviceId = _DeviceId,
@@ -43,8 +46,19 @@ public class BacClientTests
 
         //Thread.Sleep(500);
 
-        //var nodes = _client.Nodes;
-        //Assert.True(nodes.Count > 0);
+        var nodes = _client.Nodes;
+        Assert.True(nodes.Count > 0);
+    }
+
+    [Fact]
+    [TestOrder(15)]
+    public void Scan()
+    {
+        _client.Open();
+
+        var node = _client.Scan();
+        Assert.NotNull(node);
+        XTrace.WriteLine("node: {0}", node);
     }
 
     [Fact]
@@ -52,7 +66,7 @@ public class BacClientTests
     public void GetNode()
     {
         _client.Open();
-        Thread.Sleep(500);
+        //Thread.Sleep(500);
 
         var nodes = _client.Nodes;
         Assert.True(nodes.Count > 0);

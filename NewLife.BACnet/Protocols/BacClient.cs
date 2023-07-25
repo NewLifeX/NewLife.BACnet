@@ -1,7 +1,4 @@
 ﻿using System.IO.BACnet;
-using System.Security.Cryptography;
-using System.Xml.Linq;
-using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
 using NewLife.Log;
 using NewLife.Reflection;
@@ -13,8 +10,8 @@ namespace NewLife.BACnet.Protocols;
 public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 {
     #region 属性
-    /// <summary>地址</summary>
-    public String Address { get; set; }
+    ///// <summary>地址</summary>
+    //public String Address { get; set; }
 
     /// <summary>共享端口。节点在该端口上监听广播数据，多进程共享，默认0xBAC0，即47808</summary>
     public Int32 Port { get; set; } = 0xBAC0;
@@ -27,6 +24,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
     /// <summary>批大小。分批读取点位属性的批大小，默认20</summary>
     public Int32 BatchSize { get; set; } = 20;
+
+    /// <summary>等待时间。打开连接时等待搜索节点设备的时间，默认3000毫秒</summary>
+    public Int32 WaitingTime { get; set; } = 3_000;
 
     /// <summary>是否活跃</summary>
     public Boolean Active { get; set; }
@@ -56,7 +56,8 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         if (Active) return;
 
-        using var span = Tracer?.NewSpan("bac:Open", new { Port, DeviceId, Address });
+        using var span = Tracer?.NewSpan("bac:Open", new { Port, DeviceId });
+        Log?.Debug("Open [{0}]: {1}", DeviceId, Port);
         try
         {
             Transport ??= new BacnetIpUdpProtocolTransport(Port) { Tracer = Tracer };
@@ -75,7 +76,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
             _client = client;
 
-            _timer = new TimerX(DoScan, null, 0, 60_000) { Async = true };
+            Scan();
+
+            _timer = new TimerX(DoScan, null, 60_000, 60_000) { Async = true };
 
             Active = true;
         }
@@ -113,7 +116,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
 
     private void DoScan(Object state)
     {
-        using var span = Tracer?.NewSpan("bac:Scan", new { Port, DeviceId, Address });
+        using var span = Tracer?.NewSpan("bac:Scan", new { Port, DeviceId });
 
         // 广播“你是谁”
         _client.WhoIs();
@@ -122,7 +125,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     TaskCompletionSource<BacNode> _tcs;
     /// <summary>扫描节点</summary>
     /// <returns></returns>
-    public void Scan()
+    public BacNode Scan()
     {
         _tcs = new TaskCompletionSource<BacNode>();
         try
@@ -130,7 +133,15 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
             // 广播“你是谁”
             _client.WhoIs();
 
-            _tcs.Task.Wait(3_000);
+            var ct = new CancellationTokenSource(WaitingTime);
+            using (ct.Token.Register(() => _tcs.TrySetCanceled()))
+            {
+                return _tcs.Task.Result;
+            }
+        }
+        catch (AggregateException ex) when (ex.InnerException is TaskCanceledException)
+        {
+            return null;
         }
         finally
         {
@@ -142,26 +153,27 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     private void OnIam(BacnetClient sender, BacnetAddress addr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId)
     {
         using var span = Tracer?.NewSpan("bac:OnIam", new { addr, deviceId, vendorId });
+        Log?.Debug("OnIam [{0}]: {1}", addr, deviceId);
 
         // 只要目标DeviceId
         if (DeviceId > 0 && deviceId != DeviceId) return;
+
+        var node = new BacNode(addr, deviceId);
+        _tcs?.TrySetResult(node);
 
         lock (_nodes)
         {
             foreach (var bn in _nodes)
             {
-                XTrace.WriteLine("OnIam [{0}]: {1}", bn.Address, bn.DeviceId);
                 if (bn.GetAdd(deviceId) != null) return;
             }
 
             // 新增节点
-            var node = new BacNode(addr, deviceId);
             _nodes.Add(node);
 
             // 读取属性列表
             Task.Run(() => GetProperties(node, true));
             //_timer.SetNext(-1);
-            _tcs?.TrySetResult(node);
         }
 
     }

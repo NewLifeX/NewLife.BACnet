@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+﻿using System.ComponentModel;
 using NewLife.BACnet.Protocols;
 using NewLife.IoT;
 using NewLife.IoT.Drivers;
@@ -11,6 +11,7 @@ namespace NewLife.BACnet.Drivers;
 /// BACnet协议封装
 /// </summary>
 [Driver("BACnet")]
+[Description("楼宇自动化")]
 public class BACnetDriver : DriverBase
 {
     #region 属性
@@ -57,6 +58,7 @@ public class BACnetDriver : DriverBase
                         //DeviceId = p.DeviceId
 
                         Log = Log,
+                        Tracer = Tracer,
                     };
 
                     // 外部已指定通道时，打开连接
@@ -113,32 +115,38 @@ public class BACnetDriver : DriverBase
             {
                 ps.Add(new ObjectPair { Point = item, ObjectId = oid });
             }
+            else if (ObjectPair.TryParse(item.Name, out var oid2))
+            {
+                ps.Add(new ObjectPair { Point = item, ObjectId = oid2 });
+            }
         }
         if (ps.Count == 0) return null;
+
+        var bacNode = _client.GetNode(p.DeviceId);
+        //bacNode ??= _client.GetNode(p.Address);
+        if (bacNode == null) return null;
 
         // 加锁，避免冲突
         lock (_client)
         {
-            var bacNode = _client.GetNode(p.DeviceId);
-            //bacNode ??= _client.GetNode(p.Address);
-
             var dic = new Dictionary<String, Object>();
 
             //todo 批量读取还有问题，每次读取到1
-            //var data = _client.ReadProperties(bacNode.Address, ps.Select(e => e.ObjectId).ToArray());
-            //if (data == null) return null;
-
-            //foreach (var item in ps)
-            //{
-            //    if (data.TryGetValue(item.ObjectId, out var v))
-            //        dic[item.Point.Name] = v;
-            //}
+            var data = _client.ReadProperties(bacNode.Address, ps.Select(e => e.ObjectId).ToArray());
+            if (data == null) return null;
 
             foreach (var item in ps)
             {
-                var rs = _client.ReadProperty(bacNode.Address, item.ObjectId);
-                if (rs != null) dic[item.Point.Name] = rs;
+                if (data.TryGetValue(item.ObjectId, out var v))
+                    dic[item.Point.Name] = v;
             }
+
+            //// 逐个读取
+            //foreach (var item in ps)
+            //{
+            //    var rs = _client.ReadProperty(bacNode.Address, item.ObjectId);
+            //    if (rs != null) dic[item.Point.Name] = rs;
+            //}
 
             return dic;
         }

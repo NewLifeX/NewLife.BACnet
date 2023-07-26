@@ -5,7 +5,7 @@ namespace NewLife.BACnet.Drivers;
 /// <summary>
 /// BACnet参数
 /// </summary>
-public class BACnetParameter : IDriverParameter
+public class BACnetParameter : IDriverParameter, IDriverParameterKey
 {
     ///// <summary>地址</summary>
     //public String Address { get; set; }
@@ -15,4 +15,8 @@ public class BACnetParameter : IDriverParameter
 
     /// <summary>设备编号。在BACnet网络中的特定设备</summary>
     public Int32 DeviceId { get; set; }
+
+    /// <summary>唯一标识</summary>
+    /// <returns></returns>
+    public String GetKey() => DeviceId + "";
 }

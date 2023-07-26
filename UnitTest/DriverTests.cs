@@ -33,7 +33,7 @@ public class DriverTests
     {
         var driver = new BACnetDriver();
 
-        var ps = driver.GetDefaultParameter();
+        var ps = driver.CreateParameter(null);
         Assert.NotNull(ps);
 
         var bp = ps as BACnetParameter;

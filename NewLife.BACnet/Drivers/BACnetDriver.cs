@@ -29,7 +29,7 @@ public class BACnetDriver : DriverBase
     /// 创建默认参数
     /// </summary>
     /// <returns></returns>
-    public override IDriverParameter GetDefaultParameter() => new BACnetParameter();
+    protected override IDriverParameter OnCreateParameter() => new BACnetParameter();
 
     /// <summary>
     /// 打开通道。一个BACnet设备可能分为多个通道读取，需要共用Tcp连接，以不同节点区分

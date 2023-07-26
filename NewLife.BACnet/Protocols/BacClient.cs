@@ -45,8 +45,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         base.Dispose(disposing);
 
-        _timer.TryDispose();
-        _client.TryDispose();
+        Close();
     }
     #endregion
 
@@ -57,7 +56,7 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         if (Active) return;
 
         using var span = Tracer?.NewSpan("bac:Open", new { Port, DeviceId });
-        Log?.Debug("Open [{0}]: {1}", DeviceId, Port);
+        Log?.Debug("BACnet.Open [{0}]: {1}", DeviceId, Port);
         try
         {
             Transport ??= new BacnetIpUdpProtocolTransport(Port) { Tracer = Tracer };
@@ -93,6 +92,11 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     public void Close()
     {
         if (!Active) return;
+
+        Log?.Debug("BACnet.Close [{0}]: {1}", DeviceId, Port);
+
+        _timer.TryDispose();
+        _client.TryDispose();
 
         Transport.TryDispose();
         Transport = null;

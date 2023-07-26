@@ -219,8 +219,8 @@ public class BacClientTests
     [TestOrder(60)]
     public void WriteProperty()
     {
-        _client.Open();
-        Thread.Sleep(500);
+        //_client.Open();
+        //Thread.Sleep(500);
 
         var node = _client.GetNode(_DeviceId);
 
@@ -236,7 +236,7 @@ public class BacClientTests
             Assert.True(rr);
 
             var rs = _client.ReadProperty(node.Address, oid);
-            Assert.Equal(v, rs);
+            Assert.Equal(v.ToDouble(), rs.ToDouble());
         }
 
         for (var i = 0; i < 5; i++)

@@ -1,6 +1,6 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using NewLife.BACnet.Drivers;
-using NewLife.IoT;
 using NewLife.IoT.ThingModels;
 using NewLife.Log;
 using NewLife.Serialization;
@@ -12,12 +12,19 @@ namespace UnitTest;
 [TestCaseOrderer("NewLife.UnitTest.PriorityOrderer", "NewLife.UnitTest")]
 public class DriverTests
 {
-    BACnetDriver _driver;
-    BACnetParameter _parameter;
+    static BACnetDriver _driver;
+    static BACnetParameter _parameter;
 
-    public DriverTests()
+    static DriverTests()
     {
-        _driver = new BACnetDriver();
+#if DEBUG
+        XTrace.Log.Level = LogLevel.Debug;
+#endif
+
+        _driver = new BACnetDriver
+        {
+            Log = XTrace.Log,
+        };
 
         _parameter = new BACnetParameter
         {
@@ -86,9 +93,11 @@ public class DriverTests
     public void Read()
     {
         var driver = _driver;
+        _parameter.DeviceId = (Int32)driver.Client.Nodes[0].DeviceId;
+
         var dev = new ThingDevice();
         var node = driver.Open(dev, _parameter);
-        Thread.Sleep(500);
+        //Thread.Sleep(500);
 
         var point = new PointModel { Name = "A_value", Address = "0_2" };
         for (var i = 0; i < 5; i++)

@@ -55,6 +55,8 @@ public class BACnetDriver : DriverBase
 
                         // 这里不指定设备，自动搜索网络中所有设备，以便支持多个设备
                         //DeviceId = p.DeviceId
+
+                        Log = Log,
                     };
 
                     // 外部已指定通道时，打开连接

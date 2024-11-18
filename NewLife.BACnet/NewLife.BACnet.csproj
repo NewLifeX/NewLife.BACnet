@@ -63,7 +63,7 @@
 
   <ItemGroup>
     <PackageReference Include="NewLife.Core" Version="11.0.2024.1115" />
-    <PackageReference Include="NewLife.IoT" Version="2.3.2024.1106" />
+    <PackageReference Include="NewLife.IoT" Version="2.3.2024.1117" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">

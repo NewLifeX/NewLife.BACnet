@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Stardust" Version="3.2.2024.1211" />
+    <PackageReference Include="NewLife.Stardust" Version="3.2.2025.101" />
   </ItemGroup>
 
   <ItemGroup>

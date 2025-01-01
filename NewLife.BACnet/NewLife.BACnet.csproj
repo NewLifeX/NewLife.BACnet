@@ -4,7 +4,7 @@
     <AssemblyTitle>BACnet协议</AssemblyTitle>
     <Description>BACnet楼宇自动化</Description>
     <Company>新生命开发团队</Company>
-    <Copyright>©2002-2023 新生命开发团队</Copyright>
+    <Copyright>©2002-2025 新生命开发团队</Copyright>
     <VersionPrefix>1.0</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
@@ -62,7 +62,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Core" Version="11.1.2024.1206" />
+    <PackageReference Include="NewLife.Core" Version="11.3.2025.101" />
     <PackageReference Include="NewLife.IoT" Version="2.4.2024.1212" />
   </ItemGroup>
   

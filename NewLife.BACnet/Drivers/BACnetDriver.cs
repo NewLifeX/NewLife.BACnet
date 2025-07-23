@@ -11,7 +11,7 @@ namespace NewLife.BACnet.Drivers;
 /// BACnet协议封装
 /// </summary>
 [Driver("BACnet")]
-[Description("楼宇自动化")]
+[DisplayName("楼宇自动化与控制网络")]
 public class BACnetDriver : DriverBase
 {
     #region 属性

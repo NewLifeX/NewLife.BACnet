@@ -12,6 +12,101 @@ Building Automation Control network
 源码： https://github.com/NewLifeX/NewLife.BACnet  
 Nuget：NewLife.BACnet  
 
+## 主要特性
+
+- **纯托管实现**：完全基于 .NET 托管代码，无需本地依赖或 P/Invoke，跨平台运行
+- **多框架支持**：同时支持 `netstandard2.0` 和 `net45`，覆盖 .NET 4.5、.NET Core 2.0+、.NET 5/6/8/9
+- **完整协议栈**：实现 ASN.1 BER 编解码、APDU/NPDU/BVLC 各层协议，支持 30 种确认型服务和 15 种未确认型服务
+- **设备发现**：广播 Who-Is 自动发现网络中所有 BACnet 设备，定时重扫感知设备上下线
+- **高级客户端 API**：`BacClient` 提供设备扫描、属性读写、批量操作等面向业务的简洁接口
+- **BACnet 服务端**：`BacServer` 可将 .NET 应用暴露为标准 BACnet 设备，支持 XML 描述文件配置对象和属性
+- **COV 变更通知**：支持订阅属性变化通知，实时推送替代轮询
+- **事件与报警**：支持事件通知、报警摘要、报警确认等完整报警管理服务
+- **IoT 驱动框架集成**：实现 `NewLife.IoT` 驱动接口，可作为 IoT 边缘网关的可插拔驱动
+- **可观测性**：内置 `ITracer` APM 追踪和 `ILog` 日志，全链路可观测
+
+## 快速入门
+
+### 安装
+
+```shell
+dotnet add package NewLife.BACnet
+```
+
+### 客户端：发现设备并读取属性
+
+```csharp
+using NewLife.BACnet.Protocols;
+using NewLife.Log;
+
+// 创建客户端，自动发现网络中所有 BACnet 设备
+var client = new BacClient
+{
+    DeviceId = 0,       // 0 表示接受所有设备；指定数值则只处理该设备
+    Log = XTrace.Log,   // 可选：注入日志
+};
+
+client.Open();          // 广播 Who-Is，等待 3 秒收集响应
+
+// 获取已发现的设备节点
+foreach (var node in client.Nodes)
+{
+    Console.WriteLine($"设备 {node.DeviceId} 地址：{node.Address}");
+
+    // 读取单个属性（模拟值对象 0 的当前值）
+    var objectId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+    if (client.ReadProperty(node, objectId, BacnetPropertyIds.PROP_PRESENT_VALUE, out var values))
+    {
+        Console.WriteLine($"  当前值：{values[0].Value}");
+    }
+}
+
+client.Close();
+```
+
+### 服务端：暴露 BACnet 设备
+
+```csharp
+using System.IO.BACnet;
+using System.IO.BACnet.Storage;
+using NewLife.BACnet.Protocols;
+using NewLife.Threading;
+
+// 创建服务端，设备 ID 为 666，从 XML 文件加载对象描述
+var server = new BacServer
+{
+    DeviceId = 666,
+    StorageFile = "DeviceDescriptor.xml",   // 设备对象描述文件
+    Log = XTrace.Log,
+};
+
+server.Open();  // 启动监听，广播 I-Am 宣告自身存在
+
+var objectId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+
+// 定时更新属性值（模拟传感器数据）
+var timer = new TimerX(_ =>
+{
+    lock (server.Storage)
+    {
+        var value = new[] { new BacnetValue((Single)(DateTime.Now.Second)) };
+        server.Storage.WriteProperty(objectId, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, value, true);
+    }
+}, null, 0, 5_000) { Async = true };
+
+Console.ReadLine();
+```
+
+### IoT 驱动框架集成
+
+```csharp
+// BACnetDriver 已注册 [Driver("BACnet")] 特性，IoT 框架自动发现
+// 点位地址格式："实例_类型"，例如 "0_2" = 实例0 类型2(OBJECT_ANALOG_VALUE)
+// 参见 NewLife.IoT 框架文档了解驱动注册和点位配置方式
+```
+
+> **推荐测试工具**：使用 [YABE（Yet Another BACnet Explorer）](https://sourceforge.net/projects/yetanotherbacnetexplorer/) 作为对端验证工具，可直观查看设备、对象和属性。
+
 ## 知识
 BACnet支持七种局域网类型，通过以下方式进行通信:
 * IP(IPv4 and IPv6);

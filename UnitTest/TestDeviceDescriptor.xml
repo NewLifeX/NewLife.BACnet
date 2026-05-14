@@ -1,0 +1,141 @@
+<?xml version="1.0"?>
+<!-- 单元测试用 BACnet 设备描述符（精简版，供 ServerClientTests / E2ETests 使用） -->
+<DeviceStorage xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Objects>
+    <!-- 设备对象 OBJECT_DEVICE: 实例号在测试代码中由 BacServer.DeviceId 覆盖 -->
+    <Object Type="OBJECT_DEVICE" Instance="9001">
+      <Properties>
+        <Property Id="PROP_OBJECT_IDENTIFIER" Tag="BACNET_APPLICATION_TAG_OBJECT_ID">
+          <Value>OBJECT_DEVICE:9001</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_LIST" Tag="BACNET_APPLICATION_TAG_OBJECT_ID">
+          <Value>OBJECT_DEVICE:9001</Value>
+          <Value>OBJECT_ANALOG_INPUT:0</Value>
+          <Value>OBJECT_ANALOG_VALUE:0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>NewLife.BACnet Test Server</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_TYPE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>8</Value>
+        </Property>
+        <Property Id="PROP_SYSTEM_STATUS" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_VENDOR_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>NewLife Team</Value>
+        </Property>
+        <Property Id="PROP_VENDOR_IDENTIFIER" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>61440</Value>
+        </Property>
+        <Property Id="PROP_MODEL_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>UnitTest</Value>
+        </Property>
+        <Property Id="PROP_FIRMWARE_REVISION" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>1.0</Value>
+        </Property>
+        <Property Id="PROP_APPLICATION_SOFTWARE_VERSION" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>1.0</Value>
+        </Property>
+        <Property Id="PROP_PROTOCOL_VERSION" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>1</Value>
+        </Property>
+        <Property Id="PROP_PROTOCOL_REVISION" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>14</Value>
+        </Property>
+        <Property Id="PROP_PROTOCOL_SERVICES_SUPPORTED" Tag="BACNET_APPLICATION_TAG_BIT_STRING">
+          <Value>0000000000001011000000000010000000100000</Value>
+        </Property>
+        <Property Id="PROP_PROTOCOL_OBJECT_TYPES_SUPPORTED" Tag="BACNET_APPLICATION_TAG_BIT_STRING">
+          <Value>101000001000000000000000000000000000000000000000000</Value>
+        </Property>
+        <Property Id="PROP_MAX_APDU_LENGTH_ACCEPTED" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>1476</Value>
+        </Property>
+        <Property Id="PROP_SEGMENTATION_SUPPORTED" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>3</Value>
+        </Property>
+        <Property Id="PROP_APDU_TIMEOUT" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>3000</Value>
+        </Property>
+        <Property Id="PROP_NUMBER_OF_APDU_RETRIES" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>3</Value>
+        </Property>
+        <Property Id="PROP_DEVICE_ADDRESS_BINDING" Tag="BACNET_APPLICATION_TAG_NULL" />
+        <Property Id="PROP_DATABASE_REVISION" Tag="BACNET_APPLICATION_TAG_UNSIGNED_INT">
+          <Value>0</Value>
+        </Property>
+      </Properties>
+    </Object>
+    <!-- 模拟输入：只读，初始值 42.0 -->
+    <Object Type="OBJECT_ANALOG_INPUT" Instance="0">
+      <Properties>
+        <Property Id="PROP_DESCRIPTION" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>Test Analog Input</Value>
+        </Property>
+        <Property Id="PROP_EVENT_STATE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_IDENTIFIER" Tag="BACNET_APPLICATION_TAG_OBJECT_ID">
+          <Value>OBJECT_ANALOG_INPUT:0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>AI_0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_TYPE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_OUT_OF_SERVICE" Tag="BACNET_APPLICATION_TAG_BOOLEAN">
+          <Value>False</Value>
+        </Property>
+        <Property Id="PROP_PRESENT_VALUE" Tag="BACNET_APPLICATION_TAG_REAL">
+          <Value>42</Value>
+        </Property>
+        <Property Id="PROP_RELIABILITY" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_STATUS_FLAGS" Tag="BACNET_APPLICATION_TAG_BIT_STRING">
+          <Value>0000</Value>
+        </Property>
+        <Property Id="PROP_UNITS" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>62</Value>
+        </Property>
+      </Properties>
+    </Object>
+    <!-- 模拟值：可读写，初始值 0.0 -->
+    <Object Type="OBJECT_ANALOG_VALUE" Instance="0">
+      <Properties>
+        <Property Id="PROP_DESCRIPTION" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>Test Analog Value</Value>
+        </Property>
+        <Property Id="PROP_EVENT_STATE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_IDENTIFIER" Tag="BACNET_APPLICATION_TAG_OBJECT_ID">
+          <Value>OBJECT_ANALOG_VALUE:0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>AV_0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_TYPE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>2</Value>
+        </Property>
+        <Property Id="PROP_OUT_OF_SERVICE" Tag="BACNET_APPLICATION_TAG_BOOLEAN">
+          <Value>False</Value>
+        </Property>
+        <Property Id="PROP_PRESENT_VALUE" Tag="BACNET_APPLICATION_TAG_REAL">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_RELIABILITY" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_STATUS_FLAGS" Tag="BACNET_APPLICATION_TAG_BIT_STRING">
+          <Value>0000</Value>
+        </Property>
+        <Property Id="PROP_UNITS" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>62</Value>
+        </Property>
+      </Properties>
+    </Object>
+  </Objects>
+</DeviceStorage>

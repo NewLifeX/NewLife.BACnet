@@ -9,6 +9,7 @@ using Xunit;
 
 namespace UnitTest;
 
+[Trait("Category", "Hardware")]
 [TestCaseOrderer("NewLife.UnitTest.PriorityOrderer", "NewLife.UnitTest")]
 public class DriverTests
 {

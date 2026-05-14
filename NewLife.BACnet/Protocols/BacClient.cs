@@ -22,6 +22,9 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <summary>目标设备编号。仅处理该节点，默认0接受所有节点</summary>
     public Int32 DeviceId { get; set; }
 
+    /// <summary>目标地址。非空时 Scan() 发送单播 WhoIs 到该地址而非广播，用于测试环境或已知地址的定向发现</summary>
+    public String TargetAddress { get; set; }
+
     /// <summary>批大小。分批读取点位属性的批大小，默认20</summary>
     public Int32 BatchSize { get; set; } = 20;
 
@@ -36,6 +39,8 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     public IList<BacNode> Nodes => _nodes;
 
     private BacnetClient _client;
+    /// <summary>底层 BACnet 协议客户端，供高级测试或订阅 COV 事件使用</summary>
+    public BacnetClient Client => _client;
     #endregion
 
     #region 构造
@@ -122,8 +127,14 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         using var span = Tracer?.NewSpan("bac:Scan", new { Port, DeviceId });
 
-        // 广播“你是谁”
-        _client.WhoIs();
+        // 广播或单播"你是谁"
+        if (!TargetAddress.IsNullOrEmpty())
+        {
+            var addr = new BacnetAddress(BacnetAddressTypes.IP, TargetAddress);
+            _client.WhoIs(receiver: addr);
+        }
+        else
+            _client.WhoIs();
     }
 
     TaskCompletionSource<BacNode> _tcs;
@@ -134,8 +145,14 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         _tcs = new TaskCompletionSource<BacNode>();
         try
         {
-            // 广播“你是谁”
-            _client.WhoIs();
+            // 广播或单播"你是谁"
+            if (!TargetAddress.IsNullOrEmpty())
+            {
+                var addr = new BacnetAddress(BacnetAddressTypes.IP, TargetAddress);
+                _client.WhoIs(receiver: addr);
+            }
+            else
+                _client.WhoIs();
 
             var ct = new CancellationTokenSource(WaitingTime);
             using (ct.Token.Register(() => _tcs.TrySetCanceled()))

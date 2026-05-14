@@ -25,4 +25,10 @@
     <ProjectReference Include="..\NewLife.BACnet\NewLife.BACnet.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="TestDeviceDescriptor.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

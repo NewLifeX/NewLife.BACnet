@@ -14,6 +14,7 @@ using Xunit;
 namespace UnitTest;
 
 [Collection("Client")]
+[Trait("Category", "Hardware")]
 [TestCaseOrderer("NewLife.UnitTest.PriorityOrderer", "NewLife.UnitTest")]
 //[TestCaseOrderer("NewLife.UnitTest.DefaultOrderer", "NewLife.UnitTest")]
 public class BacClientTests

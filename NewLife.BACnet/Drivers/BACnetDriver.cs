@@ -57,6 +57,8 @@ public class BACnetDriver : DriverBase
                         // 这里不指定设备，自动搜索网络中所有设备，以便支持多个设备
                         //DeviceId = p.DeviceId
 
+                        TargetAddress = p.TargetAddress,
+
                         Log = Log,
                         Tracer = Tracer,
                     };
@@ -167,7 +169,7 @@ public class BACnetDriver : DriverBase
         var id = !point.Address.IsNullOrEmpty() ? point.Address : point.Name;
 
         // 根据属性转换数据类型
-        var property = bnode.Properties.FirstOrDefault(e => e.Name == id);
+        var property = bnode.Properties?.FirstOrDefault(e => e.Name == id);
         if (property != null)
         {
             value = value.ChangeType(property.Type);

@@ -49,9 +49,15 @@ public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
         if (month == 14 && (date.Month & 1) == 1)
             return false;
 
-        if (date.Day != day && day != 255)
+        if (day == 32)
+        {
+            // day=32 表示"月最后一天"（BACnet 标准 §20.2.13）
+            var lastDay = DateTime.DaysInMonth(year == 255 ? date.Year : year + 1900, month == 255 ? date.Month : month);
+            if (date.Day != lastDay)
+                return false;
+        }
+        else if (date.Day != day && day != 255)
             return false;
-        // day 32 todo
 
         if (wday == 255)
             return true;

@@ -19,7 +19,7 @@ public class ObjectPair
         oid = default;
 
         var ds = value?.SplitAsInt("_");
-        if (ds == null) return false;
+        if (ds == null || ds.Length == 0) return false;
 
         var v = ds[0];
         var t = ds.Length > 1 ? ds[1] : 0;

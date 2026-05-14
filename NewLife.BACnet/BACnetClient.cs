@@ -480,7 +480,7 @@ public class BacnetClient : IDisposable
 
     protected void ProcessUnconfirmedServiceRequest(BacnetAddress address, BacnetPduTypes type, BacnetUnconfirmedServices service, Byte[] buffer, Int32 offset, Int32 length)
     {
-        using var span = Tracer?.NewSpan($"bac:Receive:{service.ToString().TrimStart("SERVICE_UNCONFIRMED_")}", new { address, type, length });
+        using var span = Tracer?.NewSpan($"bac:Receive:{service.ToString().Replace("SERVICE_UNCONFIRMED_", String.Empty)}", new { address, type, length });
         try
         {
             Log.Debug("<=[{0}]: {1}", address, service);

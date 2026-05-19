@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO.BACnet;
 using System.Net;
@@ -57,7 +57,7 @@ public class E2ETests : IDisposable
         };
 
         // 通过标准 driver.Open() 流程打开驱动（内部会创建 BacClient 并连接）
-        _node = _driver.Open(new ThingDevice(), _parameter);
+        _node = ((IDriver)_driver).Open(new ThingDevice(), _parameter);
         Assert.NotNull(_node);
 
         // 触发设备发现，等待服务端响应
@@ -67,7 +67,7 @@ public class E2ETests : IDisposable
 
     public void Dispose()
     {
-        if (_node != null) _driver.Close(_node);
+        if (_node != null) ((IDriver)_driver).Close(_node);
         _server?.TryDispose();
     }
 
@@ -89,14 +89,14 @@ public class E2ETests : IDisposable
     public void Driver_Read_AnalogInput()
     {
         var point = new PointModel { Name = "AI_0", Address = "0_0" };
-        var rs = _driver.Read(_node, new[] { (IPoint)point });
+        var rs = ((IDriver)_driver).Read(_node, new[] { (IPoint)point });
 
         Assert.NotNull(rs);
-        Assert.True(rs.ContainsKey("AI_0"));
-        XTrace.WriteLine("AI:0 = {0}", rs["AI_0"]);
+        Assert.True(rs.GetValue("AI_0") != null);
+        XTrace.WriteLine("AI:0 = {0}", rs.GetValue("AI_0"));
 
         // XML 中初始值为 42
-        Assert.Equal(42.0, Convert.ToDouble(rs["AI_0"]), precision: 3);
+        Assert.Equal(42.0, Convert.ToDouble(rs.GetValue("AI_0")), precision: 3);
     }
 
     [Fact]
@@ -105,11 +105,11 @@ public class E2ETests : IDisposable
     public void Driver_Read_AnalogValue()
     {
         var point = new PointModel { Name = "AV_0", Address = "0_2" };
-        var rs = _driver.Read(_node, new[] { (IPoint)point });
+        var rs = ((IDriver)_driver).Read(_node, new[] { (IPoint)point });
 
         Assert.NotNull(rs);
-        Assert.True(rs.ContainsKey("AV_0"));
-        XTrace.WriteLine("AV:0 = {0}", rs["AV_0"]);
+        Assert.True(rs.GetValue("AV_0") != null);
+        XTrace.WriteLine("AV:0 = {0}", rs.GetValue("AV_0"));
     }
     #endregion
 
@@ -123,14 +123,14 @@ public class E2ETests : IDisposable
         const Single expectedValue = 99.9f;
 
         // 写入
-        var writeResult = _driver.Write(_node, point, expectedValue);
+        var writeResult = ((IDriver)_driver).Write(_node, point, expectedValue);
         XTrace.WriteLine("Write result: {0}", writeResult);
 
         // 读回验证
-        var rs = _driver.Read(_node, new[] { (IPoint)point });
+        var rs = ((IDriver)_driver).Read(_node, new[] { (IPoint)point });
         Assert.NotNull(rs);
-        Assert.True(rs.ContainsKey("AV_0"));
-        Assert.Equal(expectedValue, Convert.ToSingle(rs["AV_0"]), precision: 3);
+        Assert.True(rs.GetValue("AV_0") != null);
+        Assert.Equal(expectedValue, Convert.ToSingle(rs.GetValue("AV_0")), precision: 3);
     }
     #endregion
 
@@ -146,12 +146,12 @@ public class E2ETests : IDisposable
             new PointModel { Name = "AV_0", Address = "0_2" },
         };
 
-        var rs = _driver.Read(_node, points);
+        var rs = ((IDriver)_driver).Read(_node, points);
 
         Assert.NotNull(rs);
-        Assert.True(rs.ContainsKey("AI_0"));
-        Assert.True(rs.ContainsKey("AV_0"));
-        XTrace.WriteLine("AI:0={0}, AV:0={1}", rs["AI_0"], rs["AV_0"]);
+        Assert.True(rs.GetValue("AI_0") != null);
+        Assert.True(rs.GetValue("AV_0") != null);
+        XTrace.WriteLine("AI:0={0}, AV:0={1}", rs.GetValue("AI_0"), rs.GetValue("AV_0"));
     }
     #endregion
 
@@ -166,8 +166,8 @@ public class E2ETests : IDisposable
 
         for (var i = 0; i < 10; i++)
         {
-            var rs = _driver.Read(_node, new[] { (IPoint)point });
-            if (rs != null && rs.ContainsKey("AV_0"))
+            var rs = ((IDriver)_driver).Read(_node, new[] { (IPoint)point });
+            if (rs != null && rs.GetValue("AV_0") != null)
                 successCount++;
             Thread.Sleep(50);
         }
@@ -187,14 +187,14 @@ public class E2ETests : IDisposable
 
         foreach (var val in testValues)
         {
-            _driver.Write(_node, point, val);
+            ((IDriver)_driver).Write(_node, point, val);
             Thread.Sleep(100);
 
-            var rs = _driver.Read(_node, new[] { (IPoint)point });
+            var rs = ((IDriver)_driver).Read(_node, new[] { (IPoint)point });
             Assert.NotNull(rs);
-            Assert.True(rs.ContainsKey("AV_0"));
-            Assert.Equal(val, Convert.ToSingle(rs["AV_0"]), precision: 2);
-            XTrace.WriteLine("Write {0} → ReadBack {1}", val, rs["AV_0"]);
+            Assert.True(rs.GetValue("AV_0") != null);
+            Assert.Equal(val, Convert.ToSingle(rs.GetValue("AV_0")), precision: 2);
+            XTrace.WriteLine("Write {0} → ReadBack {1}", val, rs.GetValue("AV_0"));
         }
     }
     #endregion

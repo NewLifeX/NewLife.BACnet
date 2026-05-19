@@ -71,7 +71,8 @@ public struct BacnetObjectId : IComparable<BacnetObjectId>
     {
         if (value.IsNullOrEmpty()) return default;
 
-        if (value.Contains("_"))
+        // 格式 "instance_type"，如 "0_0"、"0_2"
+        if (value.Contains("_") && !value.Contains(":"))
         {
             var ss = value.Split('_');
             var objectType = (BacnetObjectTypes)Enum.Parse(typeof(BacnetObjectTypes), ss[1]);
@@ -80,6 +81,7 @@ public struct BacnetObjectId : IComparable<BacnetObjectId>
         }
         else
         {
+            // 格式 "OBJECT_TYPE:instance"，如 "OBJECT_ANALOG_INPUT:0"
             var pattern = new Regex($"(?<{nameof(Type)}>.+):(?<{nameof(Instance)}>.+)");
 
             if (string.IsNullOrEmpty(value) || !pattern.IsMatch(value))

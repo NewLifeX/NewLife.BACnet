@@ -55,15 +55,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Core" Version="11.7.2025.1001" />
-    <PackageReference Include="NewLife.IoT" Version="2.6.2025.801" />
+    <PackageReference Include="NewLife.Core" Version="11.15.2026.517-beta0720" />
+    <PackageReference Include="NewLife.IoT" Version="3.0.2026.518-beta1452" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">

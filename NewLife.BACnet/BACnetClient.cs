@@ -153,6 +153,9 @@ public class BacnetClient : IDisposable
     public event WritePropertyRequestHandler OnWritePropertyRequest;
     public delegate void WritePropertyMultipleRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, ICollection<BacnetPropertyValue> values, BacnetMaxSegments maxSegments);
     public event WritePropertyMultipleRequestHandler OnWritePropertyMultipleRequest;
+    public delegate void WriteObjectMultipleRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, IList<(BacnetObjectId objectId, ICollection<BacnetPropertyValue> values)> valueList, BacnetMaxSegments maxSegments);
+    /// <summary>多对象批量写入请求事件，对应 WritePropertyMultiple 含多个对象的报文</summary>
+    public event WriteObjectMultipleRequestHandler OnWriteObjectMultipleRequest;
     public delegate void AtomicWriteFileRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, Boolean isStream, BacnetObjectId objectId, Int32 position, UInt32 blockCount, Byte[][] blocks, Int32[] counts, BacnetMaxSegments maxSegments);
     public event AtomicWriteFileRequestHandler OnAtomicWriteFileRequest;
     public delegate void AtomicReadFileRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, Boolean isStream, BacnetObjectId objectId, Int32 position, UInt32 count, BacnetMaxSegments maxSegments);
@@ -244,10 +247,30 @@ public class BacnetClient : IDisposable
                     Log.Warn("Couldn't decode DecodeReadPropertyMultiple");
                 }
             }
-            else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE && OnWritePropertyMultipleRequest != null)
+            else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE && (OnWritePropertyMultipleRequest != null || OnWriteObjectMultipleRequest != null))
             {
-                if (Services.DecodeWritePropertyMultiple(address, buffer, offset, length, out var objectId, out var values) >= 0)
-                    OnWritePropertyMultipleRequest(this, address, invokeId, objectId, values, maxSegments);
+                // 尝试多对象解码（EncodeWriteObjectMultiple 编码的格式）
+                var multiLen = Services.DecodeWriteObjectMultiple(address, buffer, offset, length, out var multiResults);
+                if (multiLen >= 0 && multiResults.Count > 1)
+                {
+                    // 多对象：优先使用多对象事件（一次回调、一次 ACK）
+                    if (OnWriteObjectMultipleRequest != null)
+                        OnWriteObjectMultipleRequest(this, address, invokeId, multiResults, maxSegments);
+                    else
+                    {
+                        // 兼容老的单对象回调：只触发，ACK 由最后一次回调发出（服务端需自行处理）
+                        foreach (var (objectId, values) in multiResults)
+                            OnWritePropertyMultipleRequest(this, address, invokeId, objectId, values, maxSegments);
+                    }
+                }
+                else if (multiLen >= 0 && multiResults.Count == 1)
+                {
+                    var (objectId, values) = multiResults[0];
+                    if (OnWritePropertyMultipleRequest != null)
+                        OnWritePropertyMultipleRequest(this, address, invokeId, objectId, values, maxSegments);
+                    else
+                        OnWriteObjectMultipleRequest(this, address, invokeId, multiResults, maxSegments);
+                }
                 else
                 {
                     // DAL

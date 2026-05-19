@@ -1,38 +1,63 @@
 ﻿using System;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using NewLife.BACnet.Drivers;
+using NewLife.BACnet.Protocols;
+using NewLife.IoT.Drivers;
 using NewLife.IoT.ThingModels;
 using NewLife.Log;
-using NewLife.Serialization;
 using NewLife.UnitTest;
 using Xunit;
 
 namespace UnitTest;
 
-[Trait("Category", "Hardware")]
+[Collection("DriverLoopback")]
 [TestCaseOrderer("NewLife.UnitTest.PriorityOrderer", "NewLife.UnitTest")]
-public class DriverTests
+public class DriverTests : IDisposable
 {
-    static BACnetDriver _driver;
-    static BACnetParameter _parameter;
+    private const Int32 TestDeviceId = 9002;
+    private readonly BacServer _server;
+    private readonly Int32 _serverPort;
+    private readonly BACnetDriver _driver;
+    private readonly BACnetParameter _parameter;
 
-    static DriverTests()
+    public DriverTests()
     {
 #if DEBUG
         XTrace.Log.Level = LogLevel.Debug;
 #endif
-
-        _driver = new BACnetDriver
+        _serverPort = GetFreeUdpPort();
+        _server = new BacServer
         {
+            DeviceId = TestDeviceId,
+            StorageFile = "TestDeviceDescriptor.xml",
+            Port = _serverPort,
             Log = XTrace.Log,
         };
+        _server.Open();
 
+        var clientPort = GetFreeUdpPort();
+        _driver = new BACnetDriver { Log = XTrace.Log };
         _parameter = new BACnetParameter
         {
-            //Address = "127.0.0.1",
-            Port = 47808,
-            DeviceId = 666,
+            Port = clientPort,
+            DeviceId = TestDeviceId,
+            TargetAddress = $"127.0.0.1:{_serverPort}",
         };
+    }
+
+    public void Dispose()
+    {
+        try { _server?.Dispose(); } catch { }
+    }
+
+    private static Int32 GetFreeUdpPort()
+    {
+        var ep = new IPEndPoint(IPAddress.Loopback, 0);
+        using var sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        sock.Bind(ep);
+        return ((IPEndPoint)sock.LocalEndPoint).Port;
     }
 
     [Fact]
@@ -40,10 +65,8 @@ public class DriverTests
     public void GetDefaultParameter()
     {
         var driver = new BACnetDriver();
-
         var ps = driver.CreateParameter(null);
         Assert.NotNull(ps);
-
         var bp = ps as BACnetParameter;
         Assert.NotNull(bp);
         Assert.Equal(0xbac0, bp.Port);
@@ -53,24 +76,20 @@ public class DriverTests
     [TestOrder(20)]
     public void Open()
     {
-        var driver = _driver;
         var dev = new ThingDevice();
-        var node = driver.Open(dev, _parameter);
+        var node = ((IDriver)_driver).Open(dev, _parameter);
         Assert.NotNull(node);
 
         var bacNode = node as BACnetNode;
         Assert.NotNull(bacNode);
         Assert.NotNull(bacNode.Client);
 
-        //bacNode.Client.Open();
-
-        //var client = driver.GetValue("_client");
-        var client = driver.Client;
+        var client = _driver.Client;
         Assert.Equal(client, bacNode.Client);
 
-        driver.Close(node);
+        ((IDriver)_driver).Close(node);
 
-        client = driver.Client;
+        client = _driver.Client;
         Assert.Null(client);
     }
 
@@ -78,12 +97,12 @@ public class DriverTests
     [TestOrder(30)]
     public void Scan()
     {
-        var driver = _driver;
         var dev = new ThingDevice();
-        var node = driver.Open(dev, _parameter);
+        ((IDriver)_driver).Open(dev, _parameter);
 
-        var client = driver.Client;
+        var client = _driver.Client;
         client.Scan();
+        Thread.Sleep(800);
 
         var nodes = client.Nodes;
         Assert.True(nodes.Count > 0);
@@ -93,21 +112,18 @@ public class DriverTests
     [TestOrder(40)]
     public void Read()
     {
-        var driver = _driver;
-        _parameter.DeviceId = (Int32)driver.Client.Nodes[0].DeviceId;
-
         var dev = new ThingDevice();
-        var node = driver.Open(dev, _parameter);
-        //Thread.Sleep(500);
+        var node = ((IDriver)_driver).Open(dev, _parameter);
+        Thread.Sleep(500);
 
         var point = new PointModel { Name = "A_value", Address = "0_2" };
         for (var i = 0; i < 5; i++)
         {
-            var rs = driver.Read(node, new[] { point });
+            var rs = ((IDriver)_driver).Read(node, new[] { (IPoint)point });
             Assert.NotNull(rs);
-            Assert.Single(rs);
-            XTrace.WriteLine(rs.ToJson());
-
+            Assert.True(rs.IsSuccess);
+            Assert.Single(rs.Points);
+            XTrace.WriteLine("{0}={1}", rs.Points[0].Name, rs.Values[0]);
             Thread.Sleep(100);
         }
     }

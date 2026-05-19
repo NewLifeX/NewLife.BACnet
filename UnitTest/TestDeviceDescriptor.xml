@@ -12,6 +12,7 @@
           <Value>OBJECT_DEVICE:9001</Value>
           <Value>OBJECT_ANALOG_INPUT:0</Value>
           <Value>OBJECT_ANALOG_VALUE:0</Value>
+          <Value>OBJECT_ANALOG_VALUE:1</Value>
         </Property>
         <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
           <Value>NewLife.BACnet Test Server</Value>
@@ -116,6 +117,41 @@
         </Property>
         <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
           <Value>AV_0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_TYPE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>2</Value>
+        </Property>
+        <Property Id="PROP_OUT_OF_SERVICE" Tag="BACNET_APPLICATION_TAG_BOOLEAN">
+          <Value>False</Value>
+        </Property>
+        <Property Id="PROP_PRESENT_VALUE" Tag="BACNET_APPLICATION_TAG_REAL">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_RELIABILITY" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_STATUS_FLAGS" Tag="BACNET_APPLICATION_TAG_BIT_STRING">
+          <Value>0000</Value>
+        </Property>
+        <Property Id="PROP_UNITS" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>62</Value>
+        </Property>
+      </Properties>
+    </Object>
+    <!-- 模拟值2：可读写，初始值 0.0 -->
+    <Object Type="OBJECT_ANALOG_VALUE" Instance="1">
+      <Properties>
+        <Property Id="PROP_DESCRIPTION" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>Test Analog Value 2</Value>
+        </Property>
+        <Property Id="PROP_EVENT_STATE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
+          <Value>0</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_IDENTIFIER" Tag="BACNET_APPLICATION_TAG_OBJECT_ID">
+          <Value>OBJECT_ANALOG_VALUE:1</Value>
+        </Property>
+        <Property Id="PROP_OBJECT_NAME" Tag="BACNET_APPLICATION_TAG_CHARACTER_STRING">
+          <Value>AV_1</Value>
         </Property>
         <Property Id="PROP_OBJECT_TYPE" Tag="BACNET_APPLICATION_TAG_ENUMERATED">
           <Value>2</Value>

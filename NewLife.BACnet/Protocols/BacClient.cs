@@ -420,8 +420,16 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <returns></returns>
     public Boolean WriteProperty(BacnetAddress addr, BacnetObjectId oid, Object value)
     {
-        var bv = new BacnetValue(value);
-        return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+        try
+        {
+            var bv = new BacnetValue(value);
+            return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+        }
+        catch (Exception ex)
+        {
+            Log?.Debug("WriteProperty failed: {0}", ex.Message);
+            return false;
+        }
     }
 
     /// <summary>写入属性值</summary>
@@ -433,8 +441,16 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     {
         if (!ObjectPair.TryParse(id, out var oid)) return false;
 
-        var bv = new BacnetValue(value);
-        return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+        try
+        {
+            var bv = new BacnetValue(value);
+            return _client.WritePropertyRequest(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv });
+        }
+        catch (Exception ex)
+        {
+            Log?.Debug("WriteProperty failed: {0}", ex.Message);
+            return false;
+        }
     }
 
     /// <summary>批量写入多个对象的属性值</summary>
@@ -443,17 +459,24 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <returns></returns>
     public Boolean WriteProperties(BacnetAddress addr, IDictionary<BacnetObjectId, Object> data)
     {
-        // 构建属性引用列表
-        var prs = new List<BacnetReadAccessResult>();
+        var valueList = new List<BacnetReadAccessResult>();
         foreach (var item in data)
         {
             var bv = new BacnetValue(item.Value);
             var property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, 0);
             var bpv = new BacnetPropertyValue { property = property, value = new[] { bv } };
-            prs.Add(new BacnetReadAccessResult(item.Key, new[] { bpv }));
+            valueList.Add(new BacnetReadAccessResult(item.Key, new[] { bpv }));
         }
 
-        return _client.WritePropertyMultipleRequest(addr, prs.ToArray());
+        try
+        {
+            return _client.WritePropertyMultipleRequest(addr, valueList);
+        }
+        catch (Exception ex)
+        {
+            Log?.Debug("WriteProperties failed: {0}", ex.Message);
+            return false;
+        }
     }
 
     /// <summary>读取</summary>

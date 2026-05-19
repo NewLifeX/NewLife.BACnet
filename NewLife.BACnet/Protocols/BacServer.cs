@@ -66,6 +66,8 @@ public class BacServer : DisposeBase, ITracerFeature, ILogFeature
             client.OnReadPropertyRequest += OnReadPropertyRequest;
             client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
             client.OnWritePropertyRequest += OnWritePropertyRequest;
+            client.OnWritePropertyMultipleRequest += OnWritePropertyMultipleRequest;
+            client.OnWriteObjectMultipleRequest += OnWriteObjectMultipleRequest;
 
             // 监听端口
             client.Start();
@@ -130,8 +132,9 @@ public class BacServer : DisposeBase, ITracerFeature, ILogFeature
                 else
                     sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                WriteLog("ReadProperty error: {0}", ex.Message);
                 sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
         }
@@ -202,6 +205,62 @@ public class BacServer : DisposeBase, ITracerFeature, ILogFeature
             catch (Exception)
             {
                 sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+    private void OnWritePropertyMultipleRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, BacnetObjectId objectId, ICollection<BacnetPropertyValue> values, BacnetMaxSegments maxSegments)
+    {
+        using var span = Tracer?.NewSpan("bac:OnWritePropertyMultiple", new { addr, objectId });
+        WriteLog("WritePropertyMultiple[{0}]: {1}", addr, objectId);
+
+        var storage = Storage;
+        lock (storage)
+        {
+            try
+            {
+                var errors = storage.WritePropertyMultiple(objectId, values);
+                if (errors.Any(e => e != DeviceStorage.ErrorCodes.Good))
+                {
+                    sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+                    return;
+                }
+
+                sender.SimpleAckResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId);
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+
+    private void OnWriteObjectMultipleRequest(BacnetClient sender, BacnetAddress addr, Byte invokeId, IList<(BacnetObjectId objectId, ICollection<BacnetPropertyValue> values)> valueList, BacnetMaxSegments maxSegments)
+    {
+        using var span = Tracer?.NewSpan("bac:OnWriteObjectMultiple", new { addr, count = valueList.Count });
+        WriteLog("WriteObjectMultiple[{0}]: {1} objects", addr, valueList.Count);
+
+        var storage = Storage;
+        lock (storage)
+        {
+            try
+            {
+                foreach (var (objectId, values) in valueList)
+                {
+                    var errors = storage.WritePropertyMultiple(objectId, values);
+                    if (errors.Any(e => e != DeviceStorage.ErrorCodes.Good))
+                    {
+                        WriteLog("WriteObjectMultiple denied for {0}: {1}", objectId, String.Join(",", errors));
+                        sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+                        return;
+                    }
+                }
+
+                sender.SimpleAckResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("WriteObjectMultiple error: {0}", ex);
+                sender.ErrorResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
         }
     }

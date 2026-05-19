@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO.BACnet;
 using System.IO.BACnet.Storage;
@@ -171,13 +171,14 @@ public class ServerClientTests : IDisposable
 
     [Fact]
     [TestOrder(32)]
-    [System.ComponentModel.DisplayName("环回：写入只读 AI:0 应抛出设备拒绝异常")]
+    [System.ComponentModel.DisplayName("环回：写入只读 AI:0 应返回 false")]
     public void WriteProperty_ReadOnly_Fails()
     {
         var node = GetServerNode();
         var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
-        // 服务端拒绝写入 AI（只读对象），WritePropertyRequest 抛出携带 ErrorResponse 的 Exception
-        Assert.Throws<Exception>(() => _client.WriteProperty(node.Address, oid, 99.0f));
+        // 服务端拒绝写入 AI（只读对象），WriteProperty 捕获异常后返回 false
+        var ok = _client.WriteProperty(node.Address, oid, 99.0f);
+        Assert.False(ok);
     }
     #endregion
 

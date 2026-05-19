@@ -2223,6 +2223,23 @@ public class Services
             EncodeWritePropertyMultiple(buffer, value.objectIdentifier, value.values);
     }
 
+    /// <summary>解码多对象批量写入报文，返回所有对象的写入规格列表</summary>
+    /// <remarks>对应 EncodeWriteObjectMultiple 编码的多对象 WritePropertyMultiple 报文。</remarks>
+    public static int DecodeWriteObjectMultiple(BacnetAddress address, byte[] buffer, int offset, int apduLen,
+        out IList<(BacnetObjectId objectId, ICollection<BacnetPropertyValue> values)> results)
+    {
+        results = new List<(BacnetObjectId, ICollection<BacnetPropertyValue>)>();
+        var totalLen = 0;
+        while (totalLen < apduLen)
+        {
+            var consumed = DecodeWritePropertyMultiple(address, buffer, offset + totalLen, apduLen - totalLen, out var objectId, out var values);
+            if (consumed <= 0) break;
+            results.Add((objectId, values));
+            totalLen += consumed;
+        }
+        return results.Count > 0 ? totalLen : -1;
+    }
+
     // By C. Gunter
     // quite the same as DecodeWritePropertyMultiple
     public static int DecodeCreateObject(BacnetAddress address, byte[] buffer, int offset, int apduLen, out BacnetObjectId objectId, out ICollection<BacnetPropertyValue> valuesRefs)
@@ -2365,6 +2382,10 @@ public class Services
         var _values = new LinkedList<BacnetPropertyValue>();
         while (apduLen - len > 1)
         {
+            // 检查是否已到 closing tag 1，提前退出（支持多对象报文中相邻对象的正确解码）
+            if (ASN1.decode_is_closing_tag_number(buffer, offset + len, 1))
+                break;
+
             var newEntry = new BacnetPropertyValue();
 
             /* tag 0 - Property Identifier */

@@ -127,39 +127,35 @@ public class BACnetDriver : DriverBase
         //bacNode ??= _client.GetNode(p.Address);
         if (bacNode == null) return TaskEx.FromResult(new ReadResult());
 
-        // 加锁，避免冲突
-        lock (_client)
+        // invoke-id 已按设备隔离（PRP-7），无需全局锁
+        var data = _client.ReadProperties(bacNode.Address, ps.Select(e => e.ObjectId).ToArray());
+        if (data == null) return TaskEx.FromResult(new ReadResult());
+
+        var resultPoints = new List<IPoint>();
+        var resultValues = new List<Object?>();
+        foreach (var item in ps)
         {
-            //todo 批量读取还有问题，每次读取到1
-            var data = _client.ReadProperties(bacNode.Address, ps.Select(e => e.ObjectId).ToArray());
-            if (data == null) return TaskEx.FromResult(new ReadResult());
-
-            var resultPoints = new List<IPoint>();
-            var resultValues = new List<Object?>();
-            foreach (var item in ps)
+            if (data.TryGetValue(item.ObjectId, out var v))
             {
-                if (data.TryGetValue(item.ObjectId, out var v))
-                {
-                    resultPoints.Add(item.Point);
-                    resultValues.Add(v);
-                }
+                resultPoints.Add(item.Point);
+                resultValues.Add(v);
             }
-
-            //// 逐个读取
-            //foreach (var item in ps)
-            //{
-            //    var rs = _client.ReadProperty(bacNode.Address, item.ObjectId);
-            //    if (rs != null) dic[item.Point.Name] = rs;
-            //}
-
-            var result = new ReadResult
-            {
-                IsSuccess = true,
-                Points = resultPoints.ToArray(),
-                Values = resultValues.ToArray(),
-            };
-            return TaskEx.FromResult(result);
         }
+
+        //// 逐个读取
+        //foreach (var item in ps)
+        //{
+        //    var rs = _client.ReadProperty(bacNode.Address, item.ObjectId);
+        //    if (rs != null) dic[item.Point.Name] = rs;
+        //}
+
+        var result = new ReadResult
+        {
+            IsSuccess = true,
+            Points = resultPoints.ToArray(),
+            Values = resultValues.ToArray(),
+        };
+        return TaskEx.FromResult(result);
     }
 
     /// <summary>写入数据</summary>

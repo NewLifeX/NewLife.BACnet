@@ -63,6 +63,9 @@ public class BacServer : DisposeBase, ITracerFeature, ILogFeature
             var client = new BacnetClient(Transport) { Tracer = Tracer };
             client.OnWhoIs += OnWhoIs;
             client.OnIam += OnIam;
+            client.OnWhoHas += OnWhoHas;
+            client.OnTimeSynchronize += OnTimeSynchronize;
+            client.OnDeviceCommunicationControl += OnDeviceCommunicationControl;
             client.OnReadPropertyRequest += OnReadPropertyRequest;
             client.OnReadPropertyMultipleRequest += OnReadPropertyMultipleRequest;
             client.OnWritePropertyRequest += OnWritePropertyRequest;
@@ -112,6 +115,78 @@ public class BacServer : DisposeBase, ITracerFeature, ILogFeature
             _nodes.Add(new BacNode(addr, deviceId));
         }
 
+    }
+    #endregion
+
+    #region 服务事件
+    private static String GetObjectName(System.IO.BACnet.Storage.Object obj)
+    {
+        if (obj.Properties == null) return null;
+
+        foreach (var p in obj.Properties)
+        {
+            if (p.Id == BacnetPropertyIds.PROP_OBJECT_NAME && p.Value != null && p.Value.Length > 0)
+                return p.Value[0];
+        }
+
+        return null;
+    }
+
+    private void OnWhoHas(BacnetClient sender, BacnetAddress addr, Int32 lowLimit, Int32 highLimit, BacnetObjectId? objId, String objName)
+    {
+        using var span = Tracer?.NewSpan("bac:OnWhoHas", new { addr, lowLimit, highLimit, objId, objName });
+        WriteLog("WhoHas[{0}]: objId={1} objName={2}", addr, objId, objName);
+
+        // 如果服务器有该对象，回复 I-Have
+        var storage = Storage;
+        if (storage == null) return;
+
+        lock (storage)
+        {
+            foreach (var obj in storage.Objects)
+            {
+                if (objId != null)
+                {
+                    if (obj.Type == objId.Value.type && obj.Instance == objId.Value.instance)
+                    {
+                        var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, (UInt32)DeviceId);
+                        var foundObjId = new BacnetObjectId(obj.Type, obj.Instance);
+                        sender.IHave(deviceObjId, foundObjId, GetObjectName(obj));
+                        return;
+                    }
+                }
+                else if (!objName.IsNullOrEmpty())
+                {
+                    var name = GetObjectName(obj);
+                    if (name == objName)
+                    {
+                        var deviceObjId = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, (UInt32)DeviceId);
+                        var foundObjId = new BacnetObjectId(obj.Type, obj.Instance);
+                        sender.IHave(deviceObjId, foundObjId, name);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private void OnTimeSynchronize(BacnetClient sender, BacnetAddress addr, DateTime dateTime, Boolean utc)
+    {
+        using var span = Tracer?.NewSpan("bac:OnTimeSync", new { addr, dateTime, utc });
+        WriteLog("TimeSync[{0}]: {1} UTC={2}", addr, dateTime, utc);
+
+        // 记录收到的时间同步请求，实际系统时间设置由上层应用决定
+        // 此处仅做日志记录和事件转发
+    }
+
+    private void OnDeviceCommunicationControl(BacnetClient sender, BacnetAddress addr, Byte invokeId, UInt32 timeDuration, UInt32 enableDisable, String password, BacnetMaxSegments maxSegments)
+    {
+        using var span = Tracer?.NewSpan("bac:OnDCC", new { addr, timeDuration, enableDisable });
+        WriteLog("DCC[{0}]: timeDuration={1} enableDisable={2}", addr, timeDuration, enableDisable);
+
+        // 根据 enableDisable 值处理：0=disable, 1=enable, 2=disableInitiation
+        // 此处仅记录日志并回复 SimpleAck，实际业务逻辑由上层应用处理
+        sender.SimpleAckResponse(addr, BacnetConfirmedServices.SERVICE_CONFIRMED_DEVICE_COMMUNICATION_CONTROL, invokeId);
     }
     #endregion
 

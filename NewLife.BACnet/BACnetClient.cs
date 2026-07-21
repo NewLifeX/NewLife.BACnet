@@ -490,6 +490,8 @@ public class BacnetClient : IDisposable
     public event UnconfirmedServiceRequestHandler OnUnconfirmedServiceRequest;
     public delegate void WhoHasHandler(BacnetClient sender, BacnetAddress adr, Int32 lowLimit, Int32 highLimit, BacnetObjectId? objId, String objName);
     public event WhoHasHandler OnWhoHas;
+    public delegate void IHaveHandler(BacnetClient sender, BacnetAddress adr, BacnetObjectId deviceId, BacnetObjectId objectId, String objectName);
+    public event IHaveHandler OnIHave;
     public delegate void IamHandler(BacnetClient sender, BacnetAddress adr, UInt32 deviceId, UInt32 maxAPDU, BacnetSegmentations segmentation, UInt16 vendorId);
     public event IamHandler OnIam;
     public delegate void WhoIsHandler(BacnetClient sender, BacnetAddress adr, Int32 lowLimit, Int32 highLimit);
@@ -529,6 +531,13 @@ public class BacnetClient : IDisposable
                     OnWhoHas(this, address, lowLimit, highLimit, objId, objName);
                 else
                     Log.Warn("Couldn't decode WhoHasBroadcast");
+            }
+            else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_HAVE && OnIHave != null)
+            {
+                if (Services.DecodeIhaveBroadcast(buffer, offset, length, out var deviceId, out var objId, out var objName) >= 0)
+                    OnIHave(this, address, deviceId, objId, objName);
+                else
+                    Log.Warn("Couldn't decode IHaveBroadcast");
             }
             else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_COV_NOTIFICATION && OnCOVNotification != null)
             {
@@ -1212,6 +1221,29 @@ public class BacnetClient : IDisposable
         NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
         APDU.EncodeError(b, BacnetPduTypes.PDU_TYPE_ABORT, (BacnetConfirmedServices)reason, invokeId);
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, adr, false, 0);
+    }
+
+    public void DeviceCommunicationControl(BacnetAddress adr, UInt32 timeDuration, UInt32 enableDisable, String password = null, Byte invokeId = 0)
+    {
+        Log.Debug($"Sending DeviceCommunicationControl enableDisable={enableDisable}");
+        if (invokeId == 0)
+            invokeId = unchecked(_invokeId++);
+
+        var buffer = GetEncodeBuffer(Transport.HeaderLength);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_DEVICE_COMMUNICATION_CONTROL, MaxSegments, Transport.MaxAdpuLength, invokeId);
+        Services.EncodeDeviceCommunicationControl(buffer, timeDuration, enableDisable, password);
+
+        var ret = new BacnetAsyncResult(this, adr, invokeId, buffer.buffer, buffer.offset - Transport.HeaderLength, true, TransmitTimeout);
+        ret.Resend();
+
+        for (var r = 0; r < _retries; r++)
+        {
+            if (ret.WaitForDone(Timeout))
+                return;
+            if (r < Retries - 1)
+                ret.Resend();
+        }
     }
 
     public void SynchronizeTime(BacnetAddress adr, DateTime dateTime, BacnetAddress source = null)

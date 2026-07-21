@@ -241,6 +241,24 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
         }
     }
 
+    /// <summary>Who-Has 按对象 ID 查找设备</summary>
+    /// <param name="objId">对象标识</param>
+    /// <param name="lowLimit">设备实例下限</param>
+    /// <param name="highLimit">设备实例上限</param>
+    public void WhoHas(BacnetObjectId objId, Int32 lowLimit = -1, Int32 highLimit = -1)
+    {
+        _client.WhoHas(objId, lowLimit, highLimit);
+    }
+
+    /// <summary>Who-Has 按对象名称查找设备</summary>
+    /// <param name="objName">对象名称</param>
+    /// <param name="lowLimit">设备实例下限</param>
+    /// <param name="highLimit">设备实例上限</param>
+    public void WhoHas(String objName, Int32 lowLimit = -1, Int32 highLimit = -1)
+    {
+        _client.WhoHas(objName, lowLimit, highLimit);
+    }
+
     /// <summary>获取节点的属性数值</summary>
     /// <param name="node"></param>
     public void GetValues(BacNode node)

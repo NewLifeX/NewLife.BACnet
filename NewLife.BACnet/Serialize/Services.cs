@@ -75,6 +75,35 @@ public class Services
         ASN1.encode_application_character_string(buffer, objectName);
     }
 
+    public static int DecodeIhaveBroadcast(byte[] buffer, int offset, int apduLen, out BacnetObjectId deviceId, out BacnetObjectId objectId, out string objectName)
+    {
+        var len = 0;
+
+        deviceId = new BacnetObjectId();
+        objectId = new BacnetObjectId();
+        objectName = null;
+
+        /* deviceIdentifier */
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out var tagNumber, out var lenValue);
+        if (tagNumber != (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
+            return -1;
+        len += ASN1.decode_object_id(buffer, offset + len, out deviceId.type, out deviceId.instance);
+
+        /* objectIdentifier */
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out lenValue);
+        if (tagNumber != (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
+            return -1;
+        len += ASN1.decode_object_id(buffer, offset + len, out objectId.type, out objectId.instance);
+
+        /* objectName */
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out lenValue);
+        if (tagNumber != (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_CHARACTER_STRING)
+            return -1;
+        len += ASN1.decode_character_string(buffer, offset + len, apduLen - (offset + len), lenValue, out objectName);
+
+        return len;
+    }
+
     public static void EncodeWhoHasBroadcast(EncodeBuffer buffer, int lowLimit, int highLimit, BacnetObjectId? objectId, string objectName)
     {
         /* optional limits - must be used as a pair */

@@ -46,12 +46,8 @@
     <Compile Remove="Base\Enums\BacnetEventEnable.cs" />
     <Compile Remove="Base\Enums\BacnetFileAccessMethod.cs" />
     <Compile Remove="Base\Enums\BacnetLimitEnable.cs" />
-    <Compile Remove="Transport\BacnetMstpProtocolTransport.cs" />
     <Compile Remove="Transport\BacnetPipeTransport.cs" />
-    <Compile Remove="Transport\BacnetPtpProtocolTransport.cs" />
-    <Compile Remove="Transport\BacnetSerialPortTransport.cs" />
     <Compile Remove="Transport\BacnetTransportEthernet.cs" />
-    <Compile Remove="Transport\IBacnetSerialTransport.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -65,13 +61,15 @@
     <PackageReference Include="NewLife.Core" Version="11.17.2026.701" />
     <PackageReference Include="NewLife.IoT" Version="3.0.2026.601" />
   </ItemGroup>
-  
-  <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">
-    <Reference Include="Microsoft.CSharp" />
-  </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="System.IO.Ports" Version="4.5.0" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,7 +7,7 @@ using Xunit;
 namespace UnitTest;
 
 /// <summary>文件服务（FIL）和对象管理（OBJ）编解码单元测试。
-/// 测试 AtomicReadFile/AtomicWriteFile、CreateObject/DeleteObject、AddListElement 的 encode→decode 往返一致性。</summary>
+/// 测试 AtomicReadFile/AtomicWriteFile、CreateObject/DeleteObject、AddListElement/RemoveListElement 的 encode→decode 往返一致性。</summary>
 public class FileObjectTests
 {
     #region 文件服务 (FIL-1/2)
@@ -175,6 +175,41 @@ public class FileObjectTests
         var objId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 1);
         var propertyId = (UInt32)BacnetPropertyIds.PROP_PRIORITY_ARRAY;
         var arrayIndex = 5u;
+        var values = new List<BacnetValue>
+        {
+            new(BacnetApplicationTags.BACNET_APPLICATION_TAG_NULL, null),
+        };
+
+        var buf = new EncodeBuffer();
+        Services.EncodeAddListElement(buf, objId, propertyId, arrayIndex, values);
+
+        Assert.True(buf.offset > 0);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("RemoveListElement 编码不抛异常 (OBJ-4)")]
+    public void RemoveListElement_Encodes()
+    {
+        var objId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 1);
+        var propertyId = (UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE;
+        var values = new List<BacnetValue>
+        {
+            new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 42.0f),
+        };
+
+        var buf = new EncodeBuffer();
+        Services.EncodeAddListElement(buf, objId, propertyId, ASN1.BACNET_ARRAY_ALL, values);
+
+        Assert.True(buf.offset > 0);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("RemoveListElement 含数组索引编码 (OBJ-4)")]
+    public void RemoveListElement_WithArrayIndex()
+    {
+        var objId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 1);
+        var propertyId = (UInt32)BacnetPropertyIds.PROP_PRIORITY_ARRAY;
+        var arrayIndex = 3u;
         var values = new List<BacnetValue>
         {
             new(BacnetApplicationTags.BACNET_APPLICATION_TAG_NULL, null),

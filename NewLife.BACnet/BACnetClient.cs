@@ -1750,22 +1750,49 @@ public class BacnetClient : IDisposable
         return false;
     }
 
-    public Task<IList<BacnetValue>> ReadPropertyAsync(BacnetAddress address, BacnetObjectTypes objType, UInt32 objInstance,
-        BacnetPropertyIds propertyId, Byte invokeId = 0, UInt32 arrayIndex = ASN1.BACNET_ARRAY_ALL)
+    /// <summary>异步读取单个属性（Task 版本）</summary>
+    public async Task<IList<BacnetValue>> ReadPropertyAsync(BacnetAddress address, BacnetObjectTypes objType, UInt32 objInstance,
+        BacnetPropertyIds propertyId, Byte invokeId = 0, UInt32 arrayIndex = ASN1.BACNET_ARRAY_ALL,
+        CancellationToken cancellationToken = default)
     {
         var objectId = new BacnetObjectId(objType, objInstance);
-        return ReadPropertyAsync(address, objectId, propertyId, invokeId, arrayIndex);
+        return await ReadPropertyAsync(address, objectId, propertyId, invokeId, arrayIndex, cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    public Task<IList<BacnetValue>> ReadPropertyAsync(BacnetAddress address, BacnetObjectId objectId,
-        BacnetPropertyIds propertyId, Byte invokeId = 0, UInt32 arrayIndex = ASN1.BACNET_ARRAY_ALL)
+    /// <summary>异步读取单个属性（Task 版本），基于 TaskCompletionSource 实现真正的异步等待</summary>
+    public async Task<IList<BacnetValue>> ReadPropertyAsync(BacnetAddress address, BacnetObjectId objectId,
+        BacnetPropertyIds propertyId, Byte invokeId = 0, UInt32 arrayIndex = ASN1.BACNET_ARRAY_ALL,
+        CancellationToken cancellationToken = default)
     {
-        return Task<IList<BacnetValue>>.Factory.StartNew(() =>
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
         {
-            return !ReadPropertyRequest(address, objectId, propertyId, out var result, invokeId, arrayIndex)
-                ? throw new Exception($"Failed to read property {propertyId} of {objectId} from {address}")
-                : result;
-        });
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeReadProperty(buffer, objectId, (UInt32)propertyId, arrayIndex);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                var response = await result.Task.ConfigureAwait(false);
+                if (Services.DecodeReadPropertyAcknowledge(address, response, 0, response.Length, out _, out _, out var valueList) < 0)
+                    throw new Exception("Failed to decode ReadProperty response");
+                return valueList;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"ReadProperty {objectId}.{propertyId} failed after {_retries} retries");
     }
 
     public IAsyncResult BeginReadPropertyRequest(BacnetAddress address, BacnetObjectId objectId, BacnetPropertyIds propertyId, Boolean waitForTransmit, Byte invokeId = 0, UInt32 arrayIndex = ASN1.BACNET_ARRAY_ALL)
@@ -1950,25 +1977,54 @@ public class BacnetClient : IDisposable
         return false;
     }
 
-    public Task<IList<BacnetPropertyValue>> ReadPropertyMultipleAsync(BacnetAddress address,
-        BacnetObjectTypes objType, UInt32 objInstance, params BacnetPropertyIds[] propertyIds)
+    /// <summary>异步批量读取多属性（Task 版本）</summary>
+    public async Task<IList<BacnetPropertyValue>> ReadPropertyMultipleAsync(BacnetAddress address,
+        BacnetObjectTypes objType, UInt32 objInstance, IList<BacnetPropertyIds> propertyIds,
+        CancellationToken cancellationToken = default)
     {
         var objectId = new BacnetObjectId(objType, objInstance);
-        return ReadPropertyMultipleAsync(address, objectId, propertyIds);
+        return await ReadPropertyMultipleAsync(address, objectId, propertyIds, cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    public Task<IList<BacnetPropertyValue>> ReadPropertyMultipleAsync(BacnetAddress address,
-        BacnetObjectId objectId, params BacnetPropertyIds[] propertyIds)
+    /// <summary>异步批量读取多属性（Task 版本），基于 TaskCompletionSource 实现真正的异步等待</summary>
+    public async Task<IList<BacnetPropertyValue>> ReadPropertyMultipleAsync(BacnetAddress address,
+        BacnetObjectId objectId, IList<BacnetPropertyIds> propertyIds,
+        CancellationToken cancellationToken = default)
     {
         var propertyReferences = propertyIds.Select(p =>
-            new BacnetPropertyReference((UInt32)p, ASN1.BACNET_ARRAY_ALL));
+            new BacnetPropertyReference((UInt32)p, ASN1.BACNET_ARRAY_ALL)).ToList();
 
-        return Task<IList<BacnetPropertyValue>>.Factory.StartNew(() =>
+        for (var r = 0; r < _retries; r++)
         {
-            return !ReadPropertyMultipleRequest(address, objectId, propertyReferences.ToList(), out var result)
-                ? throw new Exception($"Failed to read multiple properties of {objectId} from {address}")
-                : result.Single().values;
-        });
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, 0);
+            var invokeId = GetNextInvokeId(address);
+            // Re-encode with actual invokeId
+            buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeReadPropertyMultiple(buffer, objectId, propertyReferences);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                var response = await result.Task.ConfigureAwait(false);
+                if (Services.DecodeReadPropertyMultipleAcknowledge(address, response, 0, response.Length, out var values) < 0)
+                    throw new Exception("Failed to decode ReadPropertyMultiple response");
+                return values.Single().values;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"ReadPropertyMultiple {objectId} failed after {_retries} retries");
     }
 
     public IAsyncResult BeginReadPropertyMultipleRequest(BacnetAddress adr, BacnetObjectId objectId, IList<BacnetPropertyReference> propertyIdAndArrayIndex, Boolean waitForTransmit, Byte invokeId = 0)
@@ -2392,16 +2448,49 @@ public class BacnetClient : IDisposable
         return false;
     }
 
-    public Task<IList<BacnetGetEventInformationData>> GetEventsAsync(BacnetAddress address, Byte invokeId = 0)
+    /// <summary>异步获取事件信息（Task 版本），支持分页递归</summary>
+    public async Task<IList<BacnetGetEventInformationData>> GetEventsAsync(BacnetAddress address,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
     {
-        IList<BacnetGetEventInformationData> result = new List<BacnetGetEventInformationData>();
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
 
-        return Task<IList<BacnetGetEventInformationData>>.Factory.StartNew(() =>
+        IList<BacnetGetEventInformationData> alarms = new List<BacnetGetEventInformationData>();
+
+        while (true)
         {
-            return !GetAlarmSummaryOrEventRequest(address, true, ref result, invokeId)
-                ? throw new Exception($"Failed to get events from {address}")
-                : result;
-        });
+            var moreEvents = false;
+            for (var r = 0; r < _retries; r++)
+            {
+                var buffer = GetEncodeBuffer(Transport.HeaderLength);
+                NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, address.RoutedSource, address.RoutedDestination);
+                APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_GET_EVENT_INFORMATION, MaxSegments, Transport.MaxAdpuLength, invokeId);
+
+                if (alarms.Count != 0)
+                    ASN1.encode_context_object_id(buffer, 0, alarms[alarms.Count - 1].objectIdentifier.type, alarms[alarms.Count - 1].objectIdentifier.instance);
+
+                using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                    buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+                result.Resend();
+
+                try
+                {
+                    var response = await result.Task.ConfigureAwait(false);
+                    if (Services.DecodeAlarmSummaryOrEvent(response, 0, response.Length, true, ref alarms, out moreEvents) < 0)
+                        throw new Exception("Failed to decode GetEventInformation response");
+                    break;
+                }
+                catch (Exception) when (r < _retries - 1)
+                {
+                    // 超时重试
+                }
+            }
+
+            if (!moreEvents)
+                break;
+        }
+
+        return alarms;
     }
 
     public IAsyncResult BeginGetAlarmSummaryOrEventRequest(BacnetAddress adr, Boolean getEvent, IList<BacnetGetEventInformationData> alarms, Boolean waitForTransmit, Byte invokeId = 0)
@@ -2960,6 +3049,514 @@ invokeId = GetNextInvokeId(adr);
         var cultureTextInfo = Thread.CurrentThread.CurrentCulture.TextInfo;
         return cultureTextInfo.ToTitleCase($"{obj}".ToLower());
     }
+
+    #region Async Methods
+
+    /// <summary>异步写入单个属性</summary>
+    public async Task WritePropertyAsync(BacnetAddress address, BacnetObjectId objectId,
+        BacnetPropertyIds propertyId, IEnumerable<BacnetValue> valueList, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeWriteProperty(buffer, objectId, (UInt32)propertyId, ASN1.BACNET_ARRAY_ALL, _writepriority, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"WriteProperty {objectId}.{propertyId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步批量写入单个对象的多个属性</summary>
+    public async Task WritePropertyMultipleAsync(BacnetAddress address, BacnetObjectId objectId,
+        ICollection<BacnetPropertyValue> valueList, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeWritePropertyMultiple(buffer, objectId, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"WritePropertyMultiple {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步批量写入多个对象的多个属性</summary>
+    public async Task WritePropertyMultipleAsync(BacnetAddress address,
+        ICollection<BacnetReadAccessResult> valueList, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeWriteObjectMultiple(buffer, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"WritePropertyMultiple (multi-object) failed after {_retries} retries");
+    }
+
+    /// <summary>异步订阅 COV 对象级变更</summary>
+    public async Task SubscribeCOVAsync(BacnetAddress address, BacnetObjectId objectId,
+        UInt32 subscribeId, Boolean cancel, Boolean issueConfirmedNotifications, UInt32 lifetime,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_SUBSCRIBE_COV, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeSubscribeCOV(buffer, subscribeId, objectId, cancel, issueConfirmedNotifications, lifetime);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                if (!cancel && lifetime > 0)
+                    TrackCOVSubscription(address, objectId, subscribeId, issueConfirmedNotifications, lifetime);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"SubscribeCOV {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步订阅 COV 属性级变更（带阈值）</summary>
+    public async Task SubscribeCOVPropertyAsync(BacnetAddress address, BacnetObjectId objectId,
+        BacnetPropertyReference monitoredProperty, UInt32 subscribeId, Boolean cancel,
+        Boolean issueConfirmedNotifications, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_SUBSCRIBE_COV_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeSubscribeProperty(buffer, subscribeId, objectId, cancel, issueConfirmedNotifications, 0, monitoredProperty, false, 0f);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"SubscribeCOVProperty {objectId}.{monitoredProperty} failed after {_retries} retries");
+    }
+
+    /// <summary>异步设备通信控制（DCC）</summary>
+    public async Task DeviceCommunicationControlAsync(BacnetAddress address,
+        UInt32 timeDuration, UInt32 enableDisable, String password = null, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_DEVICE_COMMUNICATION_CONTROL, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeDeviceCommunicationControl(buffer, timeDuration, enableDisable, password);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"DeviceCommunicationControl failed after {_retries} retries");
+    }
+
+    /// <summary>异步原子读文件</summary>
+    public async Task<(Byte[] fileBuffer, Int32 fileBufferOffset, Boolean endOfFile)> AtomicReadFileAsync(
+        BacnetAddress address, BacnetObjectId objectId, Int32 position, UInt32 count,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_ATOMIC_READ_FILE, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeAtomicReadFile(buffer, true, objectId, position, count);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                var response = await result.Task.ConfigureAwait(false);
+                if (Services.DecodeAtomicReadFileAcknowledge(response, 0, response.Length,
+                        out var endOfFile, out _, out position, out count, out var fileBuf, out var fileBufOffset) < 0)
+                    throw new Exception("Failed to decode AtomicReadFile response");
+                return (fileBuf, fileBufOffset, endOfFile);
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"AtomicReadFile {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步原子写文件</summary>
+    public async Task<Int32> AtomicWriteFileAsync(BacnetAddress address, BacnetObjectId objectId,
+        Int32 position, Int32 count, Byte[] fileBuffer, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_ATOMIC_WRITE_FILE, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeAtomicWriteFile(buffer, true, objectId, position, 1, new[] { fileBuffer }, new[] { count });
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                var response = await result.Task.ConfigureAwait(false);
+                if (Services.DecodeAtomicWriteFileAcknowledge(response, 0, response.Length, out _, out position) < 0)
+                    throw new Exception("Failed to decode AtomicWriteFile response");
+                return position;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"AtomicWriteFile {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步创建对象</summary>
+    public async Task CreateObjectAsync(BacnetAddress address, BacnetObjectId objectId,
+        ICollection<BacnetPropertyValue> valueList = null, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_CREATE_OBJECT, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeCreateProperty(buffer, objectId, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"CreateObject {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步删除对象</summary>
+    public async Task DeleteObjectAsync(BacnetAddress address, BacnetObjectId objectId,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_DELETE_OBJECT, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            ASN1.encode_application_object_id(buffer, objectId.type, objectId.instance);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"DeleteObject {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步添加列表元素</summary>
+    public async Task AddListElementAsync(BacnetAddress address, BacnetObjectId objectId,
+        BacnetPropertyReference reference, IList<BacnetValue> valueList,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_ADD_LIST_ELEMENT, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeAddListElement(buffer, objectId, reference.propertyIdentifier, reference.propertyArrayIndex, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"AddListElement {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步移除列表元素</summary>
+    public async Task RemoveListElementAsync(BacnetAddress address, BacnetObjectId objectId,
+        BacnetPropertyReference reference, IList<BacnetValue> valueList,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_REMOVE_LIST_ELEMENT, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeAddListElement(buffer, objectId, reference.propertyIdentifier, reference.propertyArrayIndex, valueList);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"RemoveListElement {objectId} failed after {_retries} retries");
+    }
+
+    /// <summary>异步获取报警摘要</summary>
+    public async Task<IList<BacnetGetEventInformationData>> GetAlarmSummaryAsync(BacnetAddress address,
+        Byte invokeId = 0, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_GET_ALARM_SUMMARY, MaxSegments, Transport.MaxAdpuLength, invokeId);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                var response = await result.Task.ConfigureAwait(false);
+                IList<BacnetGetEventInformationData> alarms = new List<BacnetGetEventInformationData>();
+                if (Services.DecodeAlarmSummaryOrEvent(response, 0, response.Length, false, ref alarms, out _) < 0)
+                    throw new Exception("Failed to decode GetAlarmSummary response");
+                return alarms;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"GetAlarmSummary failed after {_retries} retries");
+    }
+
+    /// <summary>异步确认报警</summary>
+    public async Task AcknowledgeAlarmAsync(BacnetAddress address, BacnetObjectId objId,
+        BacnetEventStates eventState, String ackText, BacnetGenericTime evTimeStamp,
+        BacnetGenericTime ackTimeStamp, Byte invokeId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, address.RoutedSource, address.RoutedDestination);
+            APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_ACKNOWLEDGE_ALARM, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeAlarmAcknowledge(buffer, 57, objId, (UInt32)eventState, ackText, evTimeStamp, ackTimeStamp);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"AcknowledgeAlarm failed after {_retries} retries");
+    }
+
+    /// <summary>异步发送有确认事件通知</summary>
+    public async Task SendConfirmedEventNotificationAsync(BacnetAddress address,
+        BacnetEventNotificationData eventData, Byte invokeId = 0,
+        BacnetAddress source = null, CancellationToken cancellationToken = default)
+    {
+        if (invokeId == 0)
+            invokeId = GetNextInvokeId(address);
+
+        for (var r = 0; r < _retries; r++)
+        {
+            var buffer = GetEncodeBuffer(Transport.HeaderLength);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address, source);
+            APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_EVENT_NOTIFICATION, MaxSegments, Transport.MaxAdpuLength, invokeId);
+            Services.EncodeEventNotifyConfirmed(buffer, eventData);
+
+            using var result = new BacnetAsyncResult(this, address, invokeId, buffer.buffer,
+                buffer.offset - Transport.HeaderLength, true, Timeout, cancellationToken);
+            result.Resend();
+
+            try
+            {
+                await result.Task.ConfigureAwait(false);
+                return;
+            }
+            catch (Exception) when (r < _retries - 1)
+            {
+                // 超时重试
+            }
+        }
+
+        throw new TimeoutException($"SendConfirmedEventNotification failed after {_retries} retries");
+    }
+
+    #endregion
 
     public void Dispose() => Transport.Dispose();
 }

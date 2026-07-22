@@ -277,4 +277,77 @@ public class ScTransportTests
     }
 
     #endregion
+
+    #region 证书认证 (SEC-2)
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 AllowUntrustedCertificate 默认 false")]
+    public void ScTransport_AllowUntrusted_Default()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        Assert.False(transport.AllowUntrustedCertificate);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 ClientCertificate 默认 null")]
+    public void ScTransport_ClientCert_Default()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        Assert.Null(transport.ClientCertificate);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 RemoteCertificateValidationCallback 默认 null")]
+    public void ScTransport_RemoteCertCallback_Default()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        Assert.Null(transport.RemoteCertificateValidationCallback);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 AllowUntrustedCertificate 可设置")]
+    public void ScTransport_AllowUntrusted_Set()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        transport.AllowUntrustedCertificate = true;
+        Assert.True(transport.AllowUntrustedCertificate);
+
+        transport.AllowUntrustedCertificate = false;
+        Assert.False(transport.AllowUntrustedCertificate);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 RemoteCertificateValidationCallback 可设置并调用")]
+    public void ScTransport_RemoteCertCallback_Invoke()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        var invoked = false;
+
+        transport.RemoteCertificateValidationCallback = (sender, cert, chain, errors) =>
+        {
+            invoked = true;
+            return true; // 接受所有证书
+        };
+
+        Assert.NotNull(transport.RemoteCertificateValidationCallback);
+
+        // 验证回调可被调用
+        var result = transport.RemoteCertificateValidationCallback(null, null, null, null);
+        Assert.True(result);
+        Assert.True(invoked);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-2 验证回调拒绝证书")]
+    public void ScTransport_RemoteCertCallback_Reject()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+
+        transport.RemoteCertificateValidationCallback = (sender, cert, chain, errors) => false;
+
+        var result = transport.RemoteCertificateValidationCallback(null, null, null, null);
+        Assert.False(result);
+    }
+
+    #endregion
 }

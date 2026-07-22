@@ -1,5 +1,6 @@
 using System.IO.BACnet.Serialize;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 #if !NETFRAMEWORK
 using System.Net.WebSockets;
 #endif
@@ -69,6 +70,49 @@ public class BacnetScTransport : BacnetTransportBase
     private readonly Object _sendLock = new();
     private Boolean _disposing;
 
+    #region 证书认证
+
+    /// <summary>客户端证书（用于 mTLS 双向认证）。设置后会在 WebSocket 握手时发送给服务端。</summary>
+    /// <remarks>
+    /// BACnet/SC 支持基于 TLS 证书的双向认证。设置此属性后，传输层会在 WebSocket
+    /// 握手时向服务器发送客户端证书，服务器可据此验证客户端身份。
+    /// 
+    /// 使用方式：
+    /// <code>
+    /// transport.ClientCertificate = new X509Certificate2("client.pfx", "password");
+    /// transport.Start();
+    /// </code>
+    /// 
+    /// 需在调用 <see cref="Start"/> 之前设置。
+    /// </remarks>
+    public X509Certificate2 ClientCertificate { get; set; }
+
+    /// <summary>远程证书验证回调。返回 true 表示接受该证书，false 拒绝。</summary>
+    /// <remarks>
+    /// 默认使用系统信任存储验证服务器证书。设置此回调可覆盖默认验证逻辑，
+    /// 例如在测试环境接受自签名证书：
+    /// <code>
+    /// transport.RemoteCertificateValidationCallback = (sender, cert, chain, errors) => true;
+    /// </code>
+    /// 
+    /// 生产环境建议保留系统验证，仅当需要自定义验证逻辑时使用。
+    /// 此属性与 <see cref="AllowUntrustedCertificate"/> 互斥，以后者为准。
+    /// 
+    /// 注意：.NET Framework 4.5 上 SslPolicyErrors 需要引用 System.Net.Security 程序集。
+    /// </remarks>
+#if NET5_0_OR_GREATER
+    public Func<Object, X509Certificate, X509Chain, System.Net.Security.SslPolicyErrors, Boolean> RemoteCertificateValidationCallback { get; set; }
+#else
+    public Func<Object, X509Certificate, X509Chain, Object, Boolean> RemoteCertificateValidationCallback { get; set; }
+#endif
+
+    /// <summary>是否允许未受信的证书（自签名/过期等）。默认为 false。
+    /// 设置为 true 等效于 RemoteCertificateValidationCallback 返回 true。</summary>
+    /// <remarks>仅用于测试/开发环境，生产环境应保持 false 并使用正确的证书链验证。</remarks>
+    public Boolean AllowUntrustedCertificate { get; set; }
+
+    #endregion
+
     /// <summary>BACnet/SC 传输状态</summary>
     public enum ScTransportState
     {
@@ -123,6 +167,36 @@ public class BacnetScTransport : BacnetTransportBase
             if (String.Equals(Uri.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
             {
                 ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            }
+
+            // 配置客户端证书（mTLS）
+            if (ClientCertificate != null)
+            {
+                _webSocket.Options.ClientCertificates.Add(ClientCertificate);
+                Log.Info("已配置客户端证书：{0}", ClientCertificate.Subject);
+            }
+
+            // 配置远程证书验证
+            if (AllowUntrustedCertificate)
+            {
+                // 允许未受信证书（测试模式）
+#if NET5_0_OR_GREATER
+                _webSocket.Options.RemoteCertificateValidationCallback = (_, _, _, _) => true;
+#else
+                ServicePointManager.ServerCertificateValidationCallback = (_, _, _, _) => true;
+#endif
+                Log.Warn("BACnet/SC 已允许未受信证书（仅用于测试）");
+            }
+            else if (RemoteCertificateValidationCallback != null)
+            {
+#if NET5_0_OR_GREATER
+                _webSocket.Options.RemoteCertificateValidationCallback =
+                    (sender, cert, chain, errors) => RemoteCertificateValidationCallback(sender, cert, chain, errors);
+#else
+                ServicePointManager.ServerCertificateValidationCallback =
+                    (sender, cert, chain, errors) => RemoteCertificateValidationCallback(sender, cert, chain, errors);
+#endif
+                Log.Info("已配置自定义证书验证回调");
             }
 
             // 异步连接

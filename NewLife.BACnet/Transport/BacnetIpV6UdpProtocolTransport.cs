@@ -31,6 +31,9 @@ using System.Net.Sockets;
 
 namespace System.IO.BACnet;
 
+/// <summary>BACnet/IP (IPv6) UDP 传输层实现。基于 UDP 的 IPv6 BACnet 通信，使用 3 字节虚拟 MAC 地址。</summary>
+/// <remarks>基于 Addendum 135-2012aj-4 实现。IPv6 传输在标准 BACnet 中需要 3 字节的虚拟 MAC 地址（VMAC），
+/// 用于在 IPv6 无状态地址自动配置环境下唯一标识 BACnet 节点。</remarks>
 public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
 {
     private readonly bool _exclusivePort;
@@ -40,14 +43,21 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
     private UdpClient _exclusiveConn;
     private UdpClient _sharedConn;
 
+    /// <summary>BVLCV6 编解码实例</summary>
     public BVLCV6 Bvlc { get; private set; }
+    /// <summary>共享端口号</summary>
     public int SharedPort { get; }
 
-    // Give [::]:xxxx if the socket is open with System.Net.IPAddress.IPv6Any
-    // Used the bvlc layer class in BBMD mode
-    // Some more complex solutions could avoid this, that's why this property is virtual
+    /// <summary>本地 IPv6 端点地址（用于 BBMD 模式）</summary>
     public virtual IPEndPoint LocalEndPoint => (IPEndPoint)_exclusiveConn.Client.LocalEndPoint;
 
+    /// <summary>初始化 BACnet/IPv6 UDP 传输层</summary>
+    /// <param name="port">UDP 端口号</param>
+    /// <param name="vMac">虚拟 MAC 地址（-1 表示随机生成）</param>
+    /// <param name="useExclusivePort">是否使用独占端口</param>
+    /// <param name="dontFragment">是否禁止 IP 分片</param>
+    /// <param name="maxPayload">最大负载长度</param>
+    /// <param name="localEndpointIp">本地端点 IP（空字符串表示任意）</param>
     public BacnetIpV6UdpProtocolTransport(int port, int vMac = -1, bool useExclusivePort = false,
         bool dontFragment = false, int maxPayload = 1472, string localEndpointIp = "")
     {
@@ -66,6 +76,7 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         _vMac = vMac;
     }
 
+    /// <summary>启动 IPv6 UDP 传输层（绑定端口并开始异步接收）</summary>
     public override void Start()
     {
         Open();
@@ -74,6 +85,14 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         _exclusiveConn?.BeginReceive(OnReceiveData, _exclusiveConn);
     }
 
+    /// <summary>发送 BACnet 数据报（自动添加 BVLCV6 头）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">数据起始偏移</param>
+    /// <param name="dataLength">数据长度</param>
+    /// <param name="address">目标 BACnet 地址</param>
+    /// <param name="waitForTransmission">是否等待发送完成</param>
+    /// <param name="timeout">超时时间（毫秒）</param>
+    /// <returns>实际发送的字节数</returns>
     public override int Send(byte[] buffer, int offset, int dataLength, BacnetAddress address,
         bool waitForTransmission, int timeout)
     {
@@ -112,6 +131,8 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         }
     }
 
+    /// <summary>获取 IPv6 广播地址（FF0E::BAC0）</summary>
+    /// <returns>BACnet IPv6 广播地址</returns>
     public override BacnetAddress GetBroadcastAddress()
     {
         // could be FF08, FF05, FF04, FF02
@@ -121,6 +142,7 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         return ret;
     }
 
+    /// <summary>释放传输层资源（关闭 UDP 连接）</summary>
     public override void Dispose()
     {
         _exclusiveConn?.Close();
@@ -129,17 +151,24 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         _sharedConn = null;
     }
 
+    /// <summary>判断两个 IPv6 传输实例是否相等（基于端口号）</summary>
+    /// <param name="obj">比较对象</param>
+    /// <returns>是否相等</returns>
     public override bool Equals(object obj)
     {
         var a = obj as BacnetIpV6UdpProtocolTransport;
         return a?.SharedPort == SharedPort;
     }
 
+    /// <summary>获取哈希码</summary>
+    /// <returns>基于端口号的哈希码</returns>
     public override int GetHashCode()
     {
         return SharedPort.GetHashCode();
     }
 
+    /// <summary>返回 IPv6 传输层的字符串表示</summary>
+    /// <returns>"Udp IPv6:{端口号}" 格式字符串</returns>
     public override string ToString()
     {
         return "Udp IPv6:" + SharedPort;

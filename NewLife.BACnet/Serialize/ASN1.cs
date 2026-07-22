@@ -2,15 +2,27 @@
 
 namespace System.IO.BACnet.Serialize;
 
+/// <summary>BACnet ASN.1 BER TLV（Tag-Length-Value）编解码核心类。提供约 120+ 个编码/解码方法，覆盖 BACnet 全部应用标签类型。</summary>
+/// <remarks>本类使用 BACnet 标准定义的简化 TLV 编码格式（非标准 BER），所有编码方法按类型分组：
+/// encode_application_xxx — 编码带应用标签头的值，encode_bacnet_xxx — 编码裸值（无标签头），
+/// encode_context_xxx — 编码上下文标签值，decode_xxx — 对应解码操作。</remarks>
 public class ASN1
 {
+    /// <summary>BACnet 对象类型最大值（10 位）</summary>
     public const int BACNET_MAX_OBJECT = 0x3FF;
+    /// <summary>BACnet 实例号占用位数（22 位）</summary>
     public const int BACNET_INSTANCE_BITS = 22;
+    /// <summary>BACnet 实例号最大值（22 位）</summary>
     public const int BACNET_MAX_INSTANCE = 0x3FFFFF;
+    /// <summary>BitString 最大字节数</summary>
     public const int MAX_BITSTRING_BYTES = 15;
+    /// <summary>表示数组所有元素的特殊索引值</summary>
     public const uint BACNET_ARRAY_ALL = 0xFFFFFFFFU;
+    /// <summary>无写入优先级</summary>
     public const uint BACNET_NO_PRIORITY = 0;
+    /// <summary>最小写入优先级</summary>
     public const uint BACNET_MIN_PRIORITY = 1;
+    /// <summary>最大写入优先级（Priority Array 1-16 级）</summary>
     public const uint BACNET_MAX_PRIORITY = 16;
 
     /// <summary>
@@ -20,16 +32,29 @@ public class ASN1
     /// </summary>
     public static Func<BacnetAddress, BacnetPropertyIds, byte, BacnetApplicationTags> CustomTagResolver;
 
+    /// <summary>可编码接口。实现此接口的类型可通过 Encode 方法将自身序列化到编码缓冲区。</summary>
     public interface IEncode
     {
+        /// <summary>将自身编码到缓冲区</summary>
+        /// <param name="buffer">编码缓冲区</param>
         void Encode(EncodeBuffer buffer);
     }
 
+    /// <summary>可解码接口。实现此接口的类型可通过 Decode 方法从缓冲区反序列化自身。</summary>
     public interface IDecode
     {
+        /// <summary>从缓冲区解码自身</summary>
+        /// <param name="buffer">数据缓冲区</param>
+        /// <param name="offset">起始偏移</param>
+        /// <param name="count">可用数据长度</param>
+        /// <returns>消耗的字节数</returns>
         int Decode(byte[] buffer, int offset, uint count);
     }
 
+    /// <summary>编码 BACnet ObjectId（4 字节：高 10 位 Type + 低 22 位 Instance）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="instance">实例号（0-4194303）</param>
     public static void encode_bacnet_object_id(EncodeBuffer buffer, BacnetObjectTypes objectType, uint instance)
     {
         var type = (uint)objectType;
@@ -37,6 +62,11 @@ public class ASN1
         encode_unsigned32(buffer, value);
     }
 
+    /// <summary>编码通用 Tag 头（TLV 的 Tag + Length 部分）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号（0-14 单字节，≥15 扩展字节）</param>
+    /// <param name="contextSpecific">是否为上下文特定标签</param>
+    /// <param name="lenValueType">长度值（≤4 编码在头字节，5-253 单扩展字节，254-65535 双字节，>65535 四字节）</param>
     public static void encode_tag(EncodeBuffer buffer, byte tagNumber, bool contextSpecific, uint lenValueType)
     {
         var len = 1;
@@ -88,11 +118,18 @@ public class ASN1
         }
     }
 
+    /// <summary>编码枚举值（BACnet 枚举类型使用无符号整数编码）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">枚举值</param>
     public static void encode_bacnet_enumerated(EncodeBuffer buffer, uint value)
     {
         encode_bacnet_unsigned(buffer, value);
     }
 
+    /// <summary>编码应用标签 ObjectId</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="instance">实例号</param>
     public static void encode_application_object_id(EncodeBuffer buffer, BacnetObjectTypes objectType, uint instance)
     {
         var tmp1 = new EncodeBuffer();
@@ -101,6 +138,9 @@ public class ASN1
         buffer.Add(tmp1.buffer, tmp1.offset);
     }
 
+    /// <summary>编码应用标签 UnsignedInt</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">无符号整数值</param>
     public static void encode_application_unsigned(EncodeBuffer buffer, uint value)
     {
         var tmp1 = new EncodeBuffer();
@@ -109,6 +149,9 @@ public class ASN1
         buffer.Add(tmp1.buffer, tmp1.offset);
     }
 
+    /// <summary>编码应用标签 Enumerated</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">枚举值</param>
     public static void encode_application_enumerated(EncodeBuffer buffer, uint value)
     {
         var tmp1 = new EncodeBuffer();
@@ -117,6 +160,9 @@ public class ASN1
         buffer.Add(tmp1.buffer, tmp1.offset);
     }
 
+    /// <summary>编码应用标签 SignedInt</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">有符号整数值</param>
     public static void encode_application_signed(EncodeBuffer buffer, int value)
     {
         var tmp1 = new EncodeBuffer();
@@ -125,6 +171,9 @@ public class ASN1
         buffer.Add(tmp1.buffer, tmp1.offset);
     }
 
+    /// <summary>编码 BACnet 无符号整数（按值大小自动选择 1/2/3/4 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">无符号整数值</param>
     public static void encode_bacnet_unsigned(EncodeBuffer buffer, uint value)
     {
         if (value < 0x100)
@@ -145,18 +194,30 @@ public class ASN1
         }
     }
 
+    /// <summary>编码上下文标签 Boolean</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="boolean_value">布尔值</param>
     public static void encode_context_boolean(EncodeBuffer buffer, byte tagNumber, bool boolean_value)
     {
         encode_tag(buffer, tagNumber, true, 1);
         buffer.Add(boolean_value ? (byte)1 : (byte)0);
     }
 
+    /// <summary>编码上下文标签 Real（单精度浮点数）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">浮点数值</param>
     public static void encode_context_real(EncodeBuffer buffer, byte tagNumber, float value)
     {
         encode_tag(buffer, tagNumber, true, 4);
         encode_bacnet_real(buffer, value);
     }
 
+    /// <summary>编码上下文标签 UnsignedInt</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">无符号整数值。长度按值大小自动选择（1-4 字节），符合 BACnet 20.2.4 标准。</param>
     public static void encode_context_unsigned(EncodeBuffer buffer, byte tagNumber, uint value)
     {
         int len;
@@ -175,6 +236,10 @@ public class ASN1
         encode_bacnet_unsigned(buffer, value);
     }
 
+    /// <summary>编码上下文标签 CharacterString（字符串）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">字符串值</param>
     public static void encode_context_character_string(EncodeBuffer buffer, byte tagNumber, string value)
     {
         var tmp = new EncodeBuffer();
@@ -184,6 +249,10 @@ public class ASN1
         buffer.Add(tmp.buffer, tmp.offset);
     }
 
+    /// <summary>编码上下文标签 Enumerated（枚举值）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">枚举值。长度按值大小自动选择（1-4 字节）。</param>
     public static void encode_context_enumerated(EncodeBuffer buffer, byte tagNumber, uint value)
     {
         int len; /* return value */
@@ -201,6 +270,10 @@ public class ASN1
         encode_bacnet_enumerated(buffer, value);
     }
 
+    /// <summary>编码 BACnet 有符号整数（按值大小自动选择 1/2/3/4/8 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">有符号整数值</param>
+    /// <remarks>不编码前导 X'FF' 或 X'00' 字节，符合 BACnet 两字节补码规则。</remarks>
     public static void encode_bacnet_signed(EncodeBuffer buffer, long value)
     {
         /* don't encode the leading X'FF' or X'00' of the two's compliment.
@@ -220,6 +293,11 @@ public class ASN1
             encode_signed64(buffer, value);
     }
 
+    /// <summary>编码 OctetString（字节数组）到缓冲区</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="octetString">源字节数组</param>
+    /// <param name="octetOffset">起始偏移</param>
+    /// <param name="octetCount">复制长度</param>
     public static void encode_octetString(EncodeBuffer buffer, byte[] octetString, int octetOffset, int octetCount)
     {
         if (octetString != null)
@@ -229,18 +307,29 @@ public class ASN1
         }
     }
 
+    /// <summary>编码应用标签 OctetString（字节串）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="octetString">源字节数组</param>
+    /// <param name="octetOffset">起始偏移</param>
+    /// <param name="octetCount">复制长度</param>
     public static void encode_application_octet_string(EncodeBuffer buffer, byte[] octetString, int octetOffset, int octetCount)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_OCTET_STRING, false, (uint)octetCount);
         encode_octetString(buffer, octetString, octetOffset, octetCount);
     }
 
+    /// <summary>编码应用标签 Boolean（布尔值）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="booleanValue">布尔值</param>
     public static void encode_application_boolean(EncodeBuffer buffer, bool booleanValue)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_BOOLEAN, false,
             booleanValue ? 1 : (uint)0);
     }
 
+    /// <summary>编码 BACnet 单精度浮点数（IEEE 754，大端序 4 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">单精度浮点数值</param>
     public static void encode_bacnet_real(EncodeBuffer buffer, float value)
     {
         var data = BitConverter.GetBytes(value);
@@ -250,6 +339,9 @@ public class ASN1
         buffer.Add(data[0]);
     }
 
+    /// <summary>编码 BACnet 双精度浮点数（IEEE 754，大端序 8 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">双精度浮点数值</param>
     public static void encode_bacnet_double(EncodeBuffer buffer, double value)
     {
         var data = BitConverter.GetBytes(value);
@@ -263,12 +355,18 @@ public class ASN1
         buffer.Add(data[0]);
     }
 
+    /// <summary>编码应用标签 Real（单精度浮点数）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">单精度浮点数值</param>
     public static void encode_application_real(EncodeBuffer buffer, float value)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, false, 4);
         encode_bacnet_real(buffer, value);
     }
 
+    /// <summary>编码应用标签 Double（双精度浮点数）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">双精度浮点数值</param>
     public static void encode_application_double(EncodeBuffer buffer, double value)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DOUBLE, false, 8);
@@ -344,6 +442,9 @@ public class ASN1
         return octet;
     }
 
+    /// <summary>编码 BitString（位串）到缓冲区。空位串首字节为 0；非空位串按标准编码。</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="bitString">位串数据</param>
     public static void encode_bitstring(EncodeBuffer buffer, BacnetBitString bitString)
     {
         /* if the bit string is empty, then the first octet shall be zero */
@@ -362,6 +463,9 @@ public class ASN1
         }
     }
 
+    /// <summary>编码应用标签 BitString（位串）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="bitString">位串数据</param>
     public static void encode_application_bitstring(EncodeBuffer buffer, BacnetBitString bitString)
     {
         uint bitStringEncodedLength = 1; /* 1 for the bits remaining octet */
@@ -372,6 +476,10 @@ public class ASN1
         encode_bitstring(buffer, bitString);
     }
 
+    /// <summary>编码应用目的地址（基于对象类型和实例号）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="instance">实例号</param>
     public static void EncodeApplicationDestination(EncodeBuffer buffer, BacnetObjectTypes objectType, uint instance)
     {
         var tempBuffer = new EncodeBuffer();
@@ -380,11 +488,19 @@ public class ASN1
         buffer.Add(tempBuffer.buffer, tempBuffer.offset);
     }
 
+    /// <summary>编码应用目的地址（基于 BACnet 地址）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="address">BACnet 地址</param>
     public static void EncodeApplicationDestination(EncodeBuffer buffer, BacnetAddress address)
     {
         address.Encode(buffer);
     }
 
+    /// <summary>通用 BACnet 应用数据编码。根据 BacnetValue.Tag 自动选择对应的编码方法。</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">要编码的值</param>
+    /// <exception cref="ArgumentException">不支持的目标地址类型时抛出</exception>
+    /// <exception cref="Exception">无法编码的值时抛出</exception>
     public static void bacapp_encode_application_data(EncodeBuffer buffer, BacnetValue value)
     {
         if (value.Value == null)
@@ -527,6 +643,9 @@ public class ASN1
         }
     }
 
+    /// <summary>编码设备对象属性引用结构</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">属性引用值（含对象 ID、属性 ID、数组索引、设备标识）</param>
     public static void bacapp_encode_device_obj_property_ref(EncodeBuffer buffer, BacnetDeviceObjectPropertyReference value)
     {
         encode_context_object_id(buffer, 0, value.objectIdentifier.type, value.objectIdentifier.instance);
@@ -542,6 +661,10 @@ public class ASN1
             encode_context_object_id(buffer, 3, value.deviceIndentifier.type, value.deviceIndentifier.instance);
     }
 
+    /// <summary>编码上下文包装的设备对象属性引用</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">属性引用值</param>
     public static void bacapp_encode_context_device_obj_property_ref(EncodeBuffer buffer, byte tagNumber, BacnetDeviceObjectPropertyReference value)
     {
         encode_opening_tag(buffer, tagNumber);
@@ -549,6 +672,9 @@ public class ASN1
         encode_closing_tag(buffer, tagNumber);
     }
 
+    /// <summary>编码属性状态值（根据状态标签自动选择编码方式）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">属性状态值</param>
     public static void bacapp_encode_property_state(EncodeBuffer buffer, BacnetPropertyState value)
     {
         switch (value.tag)
@@ -615,6 +741,10 @@ public class ASN1
         }
     }
 
+    /// <summary>编码上下文标签 BitString（位串）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="bitString">位串数据</param>
     public static void encode_context_bitstring(EncodeBuffer buffer, byte tagNumber, BacnetBitString bitString)
     {
         uint bitStringEncodedLength = 1; /* 1 for the bits remaining octet */
@@ -625,6 +755,9 @@ public class ASN1
         encode_bitstring(buffer, bitString);
     }
 
+    /// <summary>编码开放标签（Opening Tag）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
     public static void encode_opening_tag(EncodeBuffer buffer, byte tagNumber)
     {
         var len = 1;
@@ -649,6 +782,10 @@ public class ASN1
         buffer.Add(tmp, len);
     }
 
+    /// <summary>编码上下文标签 SignedInt</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">有符号整数值</param>
     public static void encode_context_signed(EncodeBuffer buffer, byte tagNumber, int value)
     {
         int len; /* return value */
@@ -667,12 +804,20 @@ public class ASN1
         encode_bacnet_signed(buffer, value);
     }
 
+    /// <summary>编码上下文标签 ObjectId</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="instance">实例号</param>
     public static void encode_context_object_id(EncodeBuffer buffer, byte tagNumber, BacnetObjectTypes objectType, uint instance)
     {
         encode_tag(buffer, tagNumber, true, 4);
         encode_bacnet_object_id(buffer, objectType, instance);
     }
 
+    /// <summary>编码关闭标签（Closing Tag）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
     public static void encode_closing_tag(EncodeBuffer buffer, byte tagNumber)
     {
         var len = 1;
@@ -697,6 +842,9 @@ public class ASN1
         buffer.Add(tmp, len);
     }
 
+    /// <summary>编码 BACnet Time（时:分:秒:百分秒，各 1 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">时间值</param>
     public static void encode_bacnet_time(EncodeBuffer buffer, DateTime value)
     {
         buffer.Add((byte)value.Hour);
@@ -705,12 +853,19 @@ public class ASN1
         buffer.Add((byte)(value.Millisecond / 10));
     }
 
+    /// <summary>编码上下文标签 Time</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="value">时间值</param>
     public static void encode_context_time(EncodeBuffer buffer, byte tagNumber, DateTime value)
     {
         encode_tag(buffer, tagNumber, true, 4);
         encode_bacnet_time(buffer, value);
     }
 
+    /// <summary>编码 BACnet Date（年:月:日:星期，各 1 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">日期值</param>
     public static void encode_bacnet_date(EncodeBuffer buffer, DateTime value)
     {
         if (value == new DateTime(1, 1, 1)) // this is the way decode do for 'Date any' = DateTime(0)
@@ -737,18 +892,27 @@ public class ASN1
             : (byte)7);
     }
 
+    /// <summary>编码应用标签 Date</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">日期值</param>
     public static void encode_application_date(EncodeBuffer buffer, DateTime value)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE, false, 4);
         encode_bacnet_date(buffer, value);
     }
 
+    /// <summary>编码应用标签 Time</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">时间值</param>
     public static void encode_application_time(EncodeBuffer buffer, DateTime value)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
         encode_bacnet_time(buffer, value);
     }
 
+    /// <summary>编码 Date+Time 组合值（使用上下文标签 0 和 1）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">日期时间值</param>
     public static void bacapp_encode_datetime(EncodeBuffer buffer, DateTime value)
     {
         if (value != new DateTime(1, 1, 1))
@@ -758,6 +922,10 @@ public class ASN1
         }
     }
 
+    /// <summary>编码上下文包装的 Date+Time 组合值</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">日期时间值</param>
     public static void bacapp_encode_context_datetime(EncodeBuffer buffer, byte tagNumber, DateTime value)
     {
         if (value != new DateTime(1, 1, 1))
@@ -768,6 +936,9 @@ public class ASN1
         }
     }
 
+    /// <summary>编码时间戳（BacnetGenericTime：Time/Date/DateTime 三种类型）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">时间戳值</param>
     public static void bacapp_encode_timestamp(EncodeBuffer buffer, BacnetGenericTime value)
     {
         switch (value.Tag)
@@ -792,6 +963,10 @@ public class ASN1
         }
     }
 
+    /// <summary>编码上下文包装的时间戳</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">时间戳值</param>
     public static void bacapp_encode_context_timestamp(EncodeBuffer buffer, byte tagNumber, BacnetGenericTime value)
     {
         if (value.Tag != BacnetTimestampTags.TIME_STAMP_NONE)
@@ -802,6 +977,9 @@ public class ASN1
         }
     }
 
+    /// <summary>编码应用标签 CharacterString（字符串）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">字符串值</param>
     public static void encode_application_character_string(EncodeBuffer buffer, string value)
     {
         var tmp = new EncodeBuffer();
@@ -812,6 +990,10 @@ public class ASN1
         buffer.Add(tmp.buffer, tmp.offset);
     }
 
+    /// <summary>编码 BACnet CharacterString（1 字节编码类型 + 字符串字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">字符串值</param>
+    /// <remarks>编码类型默认使用 UTF-8（0x00）</remarks>
     public static void encode_bacnet_character_string(EncodeBuffer buffer, string value)
     {
         buffer.Add((byte)BacnetCharacterStringEncodings.CHARACTER_UTF8);
@@ -819,12 +1001,18 @@ public class ASN1
         buffer.Add(bufUtf8, bufUtf8.Length);
     }
 
+    /// <summary>编码 16 位无符号整数（大端序 2 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">16 位无符号整数值</param>
     public static void encode_unsigned16(EncodeBuffer buffer, ushort value)
     {
         buffer.Add((byte)((value & 0xff00) >> 8));
         buffer.Add((byte)((value & 0x00ff) >> 0));
     }
 
+    /// <summary>编码 24 位无符号整数（大端序 3 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">24 位无符号整数值</param>
     public static void encode_unsigned24(EncodeBuffer buffer, uint value)
     {
         buffer.Add((byte)((value & 0xff0000) >> 16));
@@ -832,6 +1020,9 @@ public class ASN1
         buffer.Add((byte)((value & 0x0000ff) >> 0));
     }
 
+    /// <summary>编码 32 位无符号整数（大端序 4 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">32 位无符号整数值</param>
     public static void encode_unsigned32(EncodeBuffer buffer, uint value)
     {
         buffer.Add((byte)((value & 0xff000000) >> 24));
@@ -840,12 +1031,18 @@ public class ASN1
         buffer.Add((byte)((value & 0x000000ff) >> 0));
     }
 
+    /// <summary>编码 16 位有符号整数（大端序 2 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">16 位有符号整数值</param>
     public static void encode_signed16(EncodeBuffer buffer, short value)
     {
         buffer.Add((byte)((value & 0xff00) >> 8));
         buffer.Add((byte)((value & 0x00ff) >> 0));
     }
 
+    /// <summary>编码 24 位有符号整数（大端序 3 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">24 位有符号整数值</param>
     public static void encode_signed24(EncodeBuffer buffer, int value)
     {
         buffer.Add((byte)((value & 0xff0000) >> 16));
@@ -853,6 +1050,9 @@ public class ASN1
         buffer.Add((byte)((value & 0x0000ff) >> 0));
     }
 
+    /// <summary>编码 32 位有符号整数（大端序 4 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">32 位有符号整数值</param>
     public static void encode_signed32(EncodeBuffer buffer, int value)
     {
         buffer.Add((byte)((value & 0xff000000) >> 24));
@@ -861,6 +1061,9 @@ public class ASN1
         buffer.Add((byte)((value & 0x000000ff) >> 0));
     }
 
+    /// <summary>编码 64 位有符号整数（大端序 8 字节）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">64 位有符号整数值</param>
     public static void encode_signed64(EncodeBuffer buffer, long value)
     {
         buffer.Add((byte)(value >> 56));
@@ -874,6 +1077,9 @@ public class ASN1
         buffer.Add((byte)((value & 0x000000ff) >> 0));
     }
 
+    /// <summary>编码读取访问规格（对象 ID + 属性列表）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">读取访问规格</param>
     public static void encode_read_access_specification(EncodeBuffer buffer, BacnetReadAccessSpecification value)
     {
         /* Tag 0: BACnetObjectIdentifier */
@@ -892,6 +1098,9 @@ public class ASN1
         encode_closing_tag(buffer, 1);
     }
 
+    /// <summary>编码读取访问结果（对象 ID + 属性值列表）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="value">读取访问结果</param>
     public static void encode_read_access_result(EncodeBuffer buffer, BacnetReadAccessResult value)
     {
         /* Tag 0: BACnetObjectIdentifier */
@@ -929,6 +1138,13 @@ public class ASN1
         encode_closing_tag(buffer, 1);
     }
 
+    /// <summary>解码读取访问结果</summary>
+    /// <param name="address">发送端地址</param>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apdu_len">APDU 长度</param>
+    /// <param name="value">解码后的访问结果</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_read_access_result(BacnetAddress address, byte[] buffer, int offset, int apdu_len, out BacnetReadAccessResult value)
     {
         var len = 0;
@@ -1024,6 +1240,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码读取访问规格</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apdu_len">APDU 长度</param>
+    /// <param name="value">解码后的访问规格</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_read_access_specification(byte[] buffer, int offset, int apdu_len, out BacnetReadAccessSpecification value)
     {
         var len = 0;
@@ -1087,6 +1309,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码设备对象属性引用</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apdu_len">APDU 长度</param>
+    /// <param name="value">解码后的属性引用</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_device_obj_property_ref(byte[] buffer, int offset, int apdu_len, out BacnetDeviceObjectPropertyReference value)
     {
         var len = 0;
@@ -1129,6 +1357,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码无符号整数（按 lenValue 自动选择 1/2/3/4 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">值长度（1/2/3/4）</param>
+    /// <param name="value">解码后的无符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_unsigned(byte[] buffer, int offset, uint lenValue, out uint value)
     {
         switch (lenValue)
@@ -1158,6 +1392,11 @@ public class ASN1
         return (int)lenValue;
     }
 
+    /// <summary>解码 32 位无符号整数（大端序 4 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 32 位无符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_unsigned32(byte[] buffer, int offset, out uint value)
     {
         value = ((uint)buffer[offset + 0] << 24) & 0xff000000;
@@ -1167,6 +1406,11 @@ public class ASN1
         return 4;
     }
 
+    /// <summary>解码 24 位无符号整数（大端序 3 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 24 位无符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_unsigned24(byte[] buffer, int offset, out uint value)
     {
         value = ((uint)buffer[offset + 0] << 16) & 0x00ff0000;
@@ -1175,6 +1419,11 @@ public class ASN1
         return 3;
     }
 
+    /// <summary>解码 16 位无符号整数（大端序 2 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 16 位无符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_unsigned16(byte[] buffer, int offset, out ushort value)
     {
         value = (ushort)(((uint)buffer[offset + 0] << 8) & 0x0000ff00);
@@ -1182,12 +1431,22 @@ public class ASN1
         return 2;
     }
 
+    /// <summary>解码 8 位无符号整数（1 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的字节值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_unsigned8(byte[] buffer, int offset, out byte value)
     {
         value = buffer[offset + 0];
         return 1;
     }
 
+    /// <summary>解码 32 位有符号整数（大端序 4 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 32 位有符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_signed32(byte[] buffer, int offset, out int value)
     {
         value = (int)((buffer[offset + 0] << 24) & 0xff000000);
@@ -1197,6 +1456,11 @@ public class ASN1
         return 4;
     }
 
+    /// <summary>解码 24 位有符号整数（大端序 3 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 24 位有符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_signed24(byte[] buffer, int offset, out int value)
     {
         value = (buffer[offset + 0] << 16) & 0x00ff0000;
@@ -1206,6 +1470,11 @@ public class ASN1
         return 3;
     }
 
+    /// <summary>解码 16 位有符号整数（大端序 2 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 16 位有符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_signed16(byte[] buffer, int offset, out short value)
     {
         value = (short)((buffer[offset + 0] << 8) & 0x0000ff00);
@@ -1213,37 +1482,62 @@ public class ASN1
         return 2;
     }
 
+    /// <summary>解码 8 位有符号整数（1 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的 8 位有符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_signed8(byte[] buffer, int offset, out sbyte value)
     {
         value = (sbyte)buffer[offset + 0];
         return 1;
     }
 
+    /// <summary>判断是否为扩展标签号（高 4 位 = 0xF）</summary>
+    /// <param name="x">标签头字节</param>
+    /// <returns>是否为扩展标签号</returns>
     public static bool IS_EXTENDED_TAG_NUMBER(byte x)
     {
         return (x & 0xF0) == 0xF0;
     }
 
+    /// <summary>判断是否为扩展长度值（低 3 位 = 5）</summary>
+    /// <param name="x">标签头字节</param>
+    /// <returns>是否为扩展长度值</returns>
     public static bool IS_EXTENDED_VALUE(byte x)
     {
         return (x & 0x07) == 5;
     }
 
+    /// <summary>判断是否为上下文特定标签（bit 3 = 1）</summary>
+    /// <param name="x">标签头字节</param>
+    /// <returns>是否为上下文特定标签</returns>
     public static bool IS_CONTEXT_SPECIFIC(byte x)
     {
         return (x & 0x8) == 0x8;
     }
 
+    /// <summary>判断是否为开放标签（低 3 位 = 6）</summary>
+    /// <param name="x">标签头字节</param>
+    /// <returns>是否为开放标签</returns>
     public static bool IS_OPENING_TAG(byte x)
     {
         return (x & 0x07) == 6;
     }
 
+    /// <summary>判断是否为关闭标签（低 3 位 = 7）</summary>
+    /// <param name="x">标签头字节</param>
+    /// <returns>是否为关闭标签</returns>
     public static bool IS_CLOSING_TAG(byte x)
     {
         return (x & 0x07) == 7;
     }
 
+    /// <summary>解码标签号</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">解码后的标签号</param>
+    /// <returns>消耗的字节数（1 或 2，取决于是否扩展标签）</returns>
     public static int decode_tag_number(byte[] buffer, int offset, out byte tagNumber)
     {
         var len = 1; /* return value */
@@ -1263,6 +1557,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码有符号整数（按 lenValue 自动选择 1/2/3/4 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">值长度（1/2/3/4）</param>
+    /// <param name="value">解码后的有符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_signed(byte[] buffer, int offset, uint lenValue, out int value)
     {
         switch (lenValue)
@@ -1293,6 +1593,11 @@ public class ASN1
         return (int)lenValue;
     }
 
+    /// <summary>解码单精度浮点数（大端序 4 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的单精度浮点数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_real(byte[] buffer, int offset, out float value)
     {
         byte[] tmp = { buffer[offset + 3], buffer[offset + 2], buffer[offset + 1], buffer[offset + 0] };
@@ -1300,6 +1605,12 @@ public class ASN1
         return 4;
     }
 
+    /// <summary>安全解码单精度浮点数（校验 lenValue）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">期望长度（必须为 4）</param>
+    /// <param name="value">解码后的单精度浮点数值</param>
+    /// <returns>消耗的字节数，-1 表示长度不匹配</returns>
     public static int decode_real_safe(byte[] buffer, int offset, uint lenValue, out float value)
     {
         if (lenValue == 4)
@@ -1309,6 +1620,11 @@ public class ASN1
         return (int)lenValue;
     }
 
+    /// <summary>解码双精度浮点数（大端序 8 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的双精度浮点数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_double(byte[] buffer, int offset, out double value)
     {
         byte[] tmp =
@@ -1320,6 +1636,12 @@ public class ASN1
         return 8;
     }
 
+    /// <summary>安全解码双精度浮点数（校验 lenValue）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">期望长度（必须为 8）</param>
+    /// <param name="value">解码后的双精度浮点数值</param>
+    /// <returns>消耗的字节数，-1 表示长度不匹配</returns>
     public static int decode_double_safe(byte[] buffer, int offset, uint lenValue, out double value)
     {
         if (lenValue == 8)
@@ -1344,6 +1666,14 @@ public class ASN1
         return status;
     }
 
+    /// <summary>解码 OctetString（字节串）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxLength">最大复制长度</param>
+    /// <param name="octetString">输出字节数组</param>
+    /// <param name="octetStringOffset">输出起始偏移</param>
+    /// <param name="octetStringLength">期望的字节串长度</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_octet_string(byte[] buffer, int offset, int maxLength, byte[] octetString, int octetStringOffset, uint octetStringLength)
     {
         octetstring_copy(buffer, offset, maxLength, octetString, octetStringOffset, octetStringLength);
@@ -1352,6 +1682,14 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码上下文标签 OctetString</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxLength">最大复制长度</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="octetString">输出字节数组</param>
+    /// <param name="octetStringOffset">输出起始偏移</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_octet_string(byte[] buffer, int offset, int maxLength, byte tagNumber, byte[] octetString, int octetStringOffset)
     {
         var len = 0; /* return value */
@@ -1443,6 +1781,13 @@ public class ASN1
         return true; // always OK
     }
 
+    /// <summary>解码 CharacterString（字符串）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxLength">最大字符串长度</param>
+    /// <param name="lenValue">编码长度值</param>
+    /// <param name="charString">解码后的字符串</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_character_string(byte[] buffer, int offset, int maxLength, uint lenValue, out string charString)
     {
         var len = 0; /* return value */
@@ -1469,6 +1814,12 @@ public class ASN1
         bitString.bits_used -= unusedBits;
     }
 
+    /// <summary>解码 BitString（位串）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">编码长度值</param>
+    /// <param name="bitString">解码后的位串</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_bitstring(byte[] buffer, int offset, uint lenValue, out BacnetBitString bitString)
     {
         var len = 0;
@@ -1493,6 +1844,13 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码上下文标签 CharacterString</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxLength">最大字符串长度</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="charString">解码后的字符串</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_character_string(byte[] buffer, int offset, int maxLength, byte tagNumber, out string charString)
     {
         var len = 0; /* return value */
@@ -1513,6 +1871,11 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码 BACnet Date（年:月:日:星期，各 1 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="bdate">解码后的日期</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_date(byte[] buffer, int offset, out DateTime bdate)
     {
         int year = (ushort)(buffer[offset] + 1900);
@@ -1528,6 +1891,12 @@ public class ASN1
         return 4;
     }
 
+    /// <summary>安全解码 BACnet Date（校验 lenValue）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">期望长度（必须为 4）</param>
+    /// <param name="bdate">解码后的日期</param>
+    /// <returns>消耗的字节数，-1 表示长度不匹配</returns>
     public static int decode_date_safe(byte[] buffer, int offset, uint lenValue, out DateTime bdate)
     {
         if (lenValue == 4)
@@ -1537,6 +1906,11 @@ public class ASN1
         return (int)lenValue;
     }
 
+    /// <summary>解码 BACnet Time（时:分:秒:百分秒，各 1 字节）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="btime">解码后的时间</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_bacnet_time(byte[] buffer, int offset, out DateTime btime)
     {
         int hour = buffer[offset + 0];
@@ -1555,6 +1929,12 @@ public class ASN1
         return 4;
     }
 
+    /// <summary>安全解码 BACnet Time（校验 lenValue）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">期望长度（必须为 4）</param>
+    /// <param name="btime">解码后的时间</param>
+    /// <returns>消耗的字节数，-1 表示长度不匹配</returns>
     public static int decode_bacnet_time_safe(byte[] buffer, int offset, uint lenValue, out DateTime btime)
     {
         if (lenValue == 4)
@@ -1564,6 +1944,11 @@ public class ASN1
         return (int)lenValue;
     }
 
+    /// <summary>解码 BACnet DateTime（Date + Time 组合）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="bdatetime">解码后的日期时间</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_bacnet_datetime(byte[] buffer, int offset, out DateTime bdatetime)
     {
         var len = 0;
@@ -1573,6 +1958,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码 BACnet ObjectId（4 字节：高 10 位 Type + 低 22 位 Instance）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="objectType">解码后的对象类型</param>
+    /// <param name="instance">解码后的实例号</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_object_id(byte[] buffer, int offset, out ushort objectType, out uint instance)
     {
         var len = decode_unsigned32(buffer, offset, out var value);
@@ -1582,6 +1973,13 @@ public class ASN1
         return len;
     }
 
+    /// <summary>安全解码 BACnet ObjectId（校验 lenValue）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">期望长度（必须为 4）</param>
+    /// <param name="objectType">解码后的对象类型</param>
+    /// <param name="instance">解码后的实例号</param>
+    /// <returns>消耗的字节数，-1 表示长度不匹配</returns>
     public static int decode_object_id_safe(byte[] buffer, int offset, uint lenValue, out ushort objectType, out uint instance)
     {
         if (lenValue == 4)
@@ -1592,6 +1990,13 @@ public class ASN1
         return 0;
     }
 
+    /// <summary>解码上下文标签 ObjectId</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="objectType">解码后的对象类型</param>
+    /// <param name="instance">解码后的实例号</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_object_id(byte[] buffer, int offset, byte tagNumber, out ushort objectType, out uint instance)
     {
         var len = 0;
@@ -1609,6 +2014,11 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码应用标签 Time</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="btime">解码后的时间</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_application_time(byte[] buffer, int offset, out DateTime btime)
     {
         var len = 0;
@@ -1627,6 +2037,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码上下文标签 Time</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="btime">解码后的时间</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_bacnet_time(byte[] buffer, int offset, byte tagNumber, out DateTime btime)
     {
         var len = 0;
@@ -1643,6 +2059,11 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码应用标签 Date</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="bdate">解码后的日期</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_application_date(byte[] buffer, int offset, out DateTime bdate)
     {
         var len = 0;
@@ -1661,12 +2082,24 @@ public class ASN1
         return len;
     }
 
+    /// <summary>判断并解码上下文标签的长度</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <param name="tagLength">输出标签长度</param>
+    /// <returns>是否为指定标签号的上下文标签</returns>
     public static bool decode_is_context_tag_with_length(byte[] buffer, int offset, byte tagNumber, out int tagLength)
     {
         tagLength = decode_tag_number(buffer, offset, out var myTagNumber);
         return IS_CONTEXT_SPECIFIC(buffer[offset]) && myTagNumber == tagNumber;
     }
 
+    /// <summary>解码上下文标签 Date</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="bdate">解码后的日期</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_date(byte[] buffer, int offset, byte tagNumber, out DateTime bdate)
     {
         var len = 0;
@@ -1683,6 +2116,14 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码 BACnet 应用数据（根据标签类型自动选择解码方法）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxLength">最大长度</param>
+    /// <param name="tagDataType">BACnet 应用标签类型</param>
+    /// <param name="lenValueType">长度值</param>
+    /// <param name="value">解码后的值</param>
+    /// <returns>消耗的字节数</returns>
     public static int bacapp_decode_data(byte[] buffer, int offset, int maxLength, BacnetApplicationTags tagDataType, uint lenValueType, out BacnetValue value)
     {
         var len = 0;
@@ -1912,6 +2353,13 @@ public class ASN1
         return tag;
     }
 
+    /// <summary>解码上下文标签的应用数据</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxAPDULen">最大 APDU 长度</param>
+    /// <param name="propertyTag">属性标签类型</param>
+    /// <param name="value">解码后的值</param>
+    /// <returns>消耗的字节数</returns>
     public static int bacapp_decode_context_data(byte[] buffer, int offset, uint maxAPDULen, BacnetApplicationTags propertyTag, out BacnetValue value)
     {
         int apduLen = 0, len = 0;
@@ -1950,6 +2398,15 @@ public class ASN1
         return apduLen;
     }
 
+    /// <summary>解码应用层数据（含自定义标签解析器支持）</summary>
+    /// <param name="address">发送端地址（用于自定义标签解析）</param>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxOffset">最大偏移</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="propertyId">属性 ID</param>
+    /// <param name="value">解码后的值</param>
+    /// <returns>消耗的字节数</returns>
     public static int bacapp_decode_application_data(BacnetAddress address, byte[] buffer, int offset, int maxOffset, BacnetObjectTypes objectType, BacnetPropertyIds propertyId, out BacnetValue value)
     {
         var len = 0;
@@ -1977,6 +2434,15 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码上下文包装的应用层数据</summary>
+    /// <param name="address">发送端地址</param>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="maxOffset">最大偏移</param>
+    /// <param name="objectType">对象类型</param>
+    /// <param name="propertyId">属性 ID</param>
+    /// <param name="value">解码后的值</param>
+    /// <returns>消耗的字节数</returns>
     public static int bacapp_decode_context_application_data(BacnetAddress address, byte[] buffer, int offset, int maxOffset, BacnetObjectTypes objectType, BacnetPropertyIds propertyId, out BacnetValue value)
     {
         var len = 0;
@@ -2161,6 +2627,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码 BACnet ObjectId（返回 BacnetObjectTypes 枚举）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="objectType">解码后的对象类型</param>
+    /// <param name="instance">解码后的实例号</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_object_id(byte[] buffer, int offset, out BacnetObjectTypes objectType, out uint instance)
     {
         var len = decode_unsigned32(buffer, offset, out var value);
@@ -2170,12 +2642,24 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码枚举值（无符号整数）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">值长度</param>
+    /// <param name="value">解码后的枚举值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_enumerated(byte[] buffer, int offset, uint lenValue, out uint value)
     {
         var len = decode_unsigned(buffer, offset, lenValue, out value);
         return len;
     }
 
+    /// <summary>解码枚举值（泛型版本，直接返回枚举类型）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="lenValue">值长度</param>
+    /// <param name="value">解码后的枚举值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_enumerated<TEnum>(byte[] buffer, int offset, uint lenValue, out TEnum value)
     {
         var len = decode_enumerated(buffer, offset, lenValue, out var rawValue);
@@ -2183,34 +2667,63 @@ public class ASN1
         return len;
     }
 
+    /// <summary>判断是否为指定标签号的上下文标签</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <returns>是否为指定标签号的上下文标签</returns>
     public static bool decode_is_context_tag(byte[] buffer, int offset, byte tagNumber)
     {
         decode_tag_number(buffer, offset, out var myTagNumber);
         return IS_CONTEXT_SPECIFIC(buffer[offset]) && myTagNumber == tagNumber;
     }
 
+    /// <summary>判断是否为指定标签号的开放标签</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <returns>是否为开放标签</returns>
     public static bool decode_is_opening_tag_number(byte[] buffer, int offset, byte tagNumber)
     {
         decode_tag_number(buffer, offset, out var myTagNumber);
         return IS_OPENING_TAG(buffer[offset]) && myTagNumber == tagNumber;
     }
 
+    /// <summary>判断是否为指定标签号的关闭标签</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">标签号</param>
+    /// <returns>是否为关闭标签</returns>
     public static bool decode_is_closing_tag_number(byte[] buffer, int offset, byte tagNumber)
     {
         decode_tag_number(buffer, offset, out var myTagNumber);
         return IS_CLOSING_TAG(buffer[offset]) && myTagNumber == tagNumber;
     }
 
+    /// <summary>判断是否为关闭标签</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <returns>是否为关闭标签</returns>
     public static bool decode_is_closing_tag(byte[] buffer, int offset)
     {
         return (buffer[offset] & 0x07) == 7;
     }
 
+    /// <summary>判断是否为开放标签</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <returns>是否为开放标签</returns>
     public static bool decode_is_opening_tag(byte[] buffer, int offset)
     {
         return (buffer[offset] & 0x07) == 6;
     }
 
+    /// <summary>解码标签号和长度</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">解码后的标签号</param>
+    /// <param name="value">解码后的长度值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_tag_number_and_value(byte[] buffer, int offset, out byte tagNumber, out uint value)
     {
         var len = decode_tag_number(buffer, offset, out tagNumber);
@@ -2255,6 +2768,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码标签号和长度（泛型版本）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tag">解码后的标签值</param>
+    /// <param name="value">解码后的长度值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_tag_number_and_value<TTag, TValue>(byte[] buffer, int offset, out TTag tag, out TValue value)
     {
         var len = decode_tag_number_and_value(buffer, offset, out var rawByte, out var rawValue);
@@ -2317,6 +2836,12 @@ public class ASN1
             encode_context_real(buffer, 4, value.COVIncrement);
     }
 
+    /// <summary>解码 COV 订阅数据</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apduLen">APDU 长度</param>
+    /// <param name="value">解码后的 COV 订阅信息</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_cov_subscription(byte[] buffer, int offset, int apduLen, out BacnetCOVSubscription value)
     {
         var len = 0;
@@ -2406,6 +2931,12 @@ public class ASN1
         return len;
     }
 
+    /// <summary>解码上下文标签 PropertyState</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">解码后的属性状态</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_property_state(byte[] buffer, int offset, byte tagNumber, out BacnetPropertyState value)
     {
         if (!decode_is_opening_tag_number(buffer, offset, tagNumber))
@@ -2426,6 +2957,11 @@ public class ASN1
         return len + 1;
     }
 
+    /// <summary>解码 PropertyState（根据标签自动识别状态类型）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="value">解码后的属性状态</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_property_state(byte[] buffer, int offset, out BacnetPropertyState value)
     {
         value = default;
@@ -2472,6 +3008,12 @@ public class ASN1
         return len + sectionLength;
     }
 
+    /// <summary>解码上下文标签 BitString</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">解码后的位串</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_bitstring(byte[] buffer, int offset, byte tagNumber, out BacnetBitString value)
     {
         if (!decode_is_context_tag(buffer, offset, tagNumber) || decode_is_closing_tag(buffer, offset))
@@ -2484,6 +3026,12 @@ public class ASN1
         return len + decode_bitstring(buffer, offset + len, lenValue, out value);
     }
 
+    /// <summary>解码上下文标签 Real（单精度浮点数）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">解码后的单精度浮点数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_real(byte[] buffer, int offset, byte tagNumber, out float value)
     {
         if (!decode_is_context_tag(buffer, offset, tagNumber))
@@ -2496,6 +3044,12 @@ public class ASN1
         return len + decode_real(buffer, offset + len, out value);
     }
 
+    /// <summary>解码上下文标签 Enumerated（泛型版本）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">解码后的枚举值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_enumerated<TEnum>(byte[] buffer, int offset, byte tagNumber, out TEnum value)
     {
         if (!decode_is_context_tag(buffer, offset, tagNumber) || decode_is_closing_tag(buffer, offset))
@@ -2508,6 +3062,12 @@ public class ASN1
         return len + decode_enumerated(buffer, offset + len, lenValue, out value);
     }
 
+    /// <summary>解码上下文标签 UnsignedInt</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="tagNumber">上下文标签号</param>
+    /// <param name="value">解码后的无符号整数值</param>
+    /// <returns>消耗的字节数</returns>
     public static int decode_context_unsigned(byte[] buffer, int offset, byte tagNumber, out uint value)
     {
         if (!decode_is_context_tag(buffer, offset, tagNumber) || decode_is_closing_tag(buffer, offset))

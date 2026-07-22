@@ -279,4 +279,65 @@ public class COVTests
     }
 
     #endregion
+
+    #region COV 订阅自动续约 (COV-6)
+
+    [Fact]
+    [System.ComponentModel.DisplayName("StartCOVAutoRenewal 启动不抛异常")]
+    public void COVAutoRenewal_Start_NoThrow()
+    {
+        using var client = new BacnetClient();
+        // 自动续约不依赖传输层状态，仅依赖定时器机制
+        client.StartCOVAutoRenewal(300);
+        // 停止续约
+        client.StopCOVAutoRenewal();
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("COVSubscriptions 跟踪订阅项")]
+    public void COVAutoRenewal_TracksSubscriptions()
+    {
+        using var client = new BacnetClient();
+        client.StartCOVAutoRenewal(300);
+
+        // 模拟订阅跟踪：直接操作 COVSubscriptions 集合
+        client.COVSubscriptions.Add(new BacnetClient.COVSubscription
+        {
+            SubscribeId = 100,
+            Lifetime = 600,
+            SubscribeTime = DateTime.UtcNow,
+        });
+
+        Assert.Single(client.COVSubscriptions);
+        Assert.Equal(100u, client.COVSubscriptions[0].SubscribeId);
+        Assert.Equal(600u, client.COVSubscriptions[0].Lifetime);
+        Assert.False(client.COVSubscriptions[0].Cancelled);
+
+        client.StopCOVAutoRenewal();
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("COVSubscriptions 支持取消订阅标记")]
+    public void COVAutoRenewal_CancelSubscription()
+    {
+        using var client = new BacnetClient();
+        client.StartCOVAutoRenewal(300);
+
+        client.COVSubscriptions.Add(new BacnetClient.COVSubscription
+        {
+            SubscribeId = 200,
+            Lifetime = 600,
+            SubscribeTime = DateTime.UtcNow,
+        });
+
+        Assert.Single(client.COVSubscriptions);
+
+        // 标记取消
+        client.COVSubscriptions[0].Cancelled = true;
+        Assert.True(client.COVSubscriptions[0].Cancelled);
+
+        client.StopCOVAutoRenewal();
+    }
+
+    #endregion
 }

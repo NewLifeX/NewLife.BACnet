@@ -4,27 +4,30 @@ using NewLife.Log;
 
 namespace System.IO.BACnet;
 
-// Only some elements here are really tested
-// all FDR, BBMD activities is just a copy/adaptation of my IPv4 code
-// Code for V4 working fine, for V6 sure not before a series of tests
+/// <summary>BACnet IPv6 虚拟链路控制层（BVLCV6），处理 BACnet/IPv6 帧编解码和 BBMD/FD 管理。</summary>
+/// <remarks>基于 Addendum 135-2012aj-4 实现。部分代码为 IPv4 版适配移植，IPv6 需实际网络环境验证。</remarks>
 public class BVLCV6
 {
+    /// <summary>BACnet/IPv6 BVLL 类型标识（0x82）</summary>
     public const Byte BVLL_TYPE_BACNET_IPV6 = 0x82;
-    public const Byte BVLC_HEADER_LENGTH = 10; // Not all the time, could be 7 for bacnet broadcast
+    /// <summary>BVLC 头长度（10 字节），广播帧可为 7 字节</summary>
+    public const Byte BVLC_HEADER_LENGTH = 10;
+    /// <summary>BVLC 最大 APDU 长度（1476 字节）</summary>
     public const BacnetMaxAdpu BVLC_MAX_APDU = BacnetMaxAdpu.MAX_APDU1476;
-    // Contains the rules to accept FRD based on the IP adress
-    // If empty it's equal to * , everyone allows
-    private readonly List<Regex> _autorizedFDR = new();
 
     private Boolean _bbmdFdServiceActivated;
     private readonly List<IPEndPoint> _bbmds = new();
     private readonly BacnetAddress _broadcastAdd;
+    private readonly List<Regex> _autorizedFDR = new();
     // Two lists for optional BBMD activity
     private readonly List<KeyValuePair<IPEndPoint, DateTime>> _foreignDevices = new();
     private readonly BacnetIpV6UdpProtocolTransport _myTransport;
-    public Boolean RandomVmac;
 
+    /// <summary>是否使用随机虚拟 MAC 地址</summary>
+    public Boolean RandomVmac;
+    /// <summary>3 字节虚拟 MAC 地址（IPv6 特有）</summary>
     public Byte[] VMAC = new Byte[3];
+    /// <summary>日志实例</summary>
     public ILog Log { get; set; } = XTrace.Log;
 
     public BVLCV6(BacnetIpV6UdpProtocolTransport transport, Int32 vMac)
@@ -54,9 +57,12 @@ public class BVLCV6
         }
     }
 
+    /// <summary>添加 Foreign Device 注册的 IP 规则（白名单）。规则为空时接受所有 IP。</summary>
+    /// <param name="ipRule">正则表达式规则</param>
     public void AddFDRAutorisationRule(Regex ipRule) => _autorizedFDR.Add(ipRule);
 
-    // Used to initiate the BBMD & FD behaviour, if BBMD is null it start the FD activity only
+    /// <summary>添加 BBMD 对等体，启动 BBMD/FD 服务</summary>
+    /// <param name="bbmd">BBMD 端点。为 null 时仅启动 FD 活动。</param>
     public void AddBBMDPeer(IPEndPoint bbmd)
     {
         _bbmdFdServiceActivated = true;

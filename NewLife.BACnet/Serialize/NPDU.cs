@@ -1,18 +1,31 @@
 ﻿namespace System.IO.BACnet.Serialize;
 
-/// <summary>
-/// Network Protocol Data Unit ，网络协议数据单元
-/// </summary>
+/// <summary>Network Protocol Data Unit，网络协议数据单元。处理 BACnet NPDU 的编码/解码，含源/目标地址和跳数管理。</summary>
 public class NPDU
 {
+    /// <summary>BACnet 协议版本号（固定为 1）</summary>
     public const byte BACNET_PROTOCOL_VERSION = 1;
 
+    /// <summary>解码 NPDU 头部中的控制字节</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <returns>控制标志位组合</returns>
     public static BacnetNpduControls DecodeFunction(byte[] buffer, int offset)
     {
         if (buffer[offset + 0] != BACNET_PROTOCOL_VERSION) return 0;
         return (BacnetNpduControls)buffer[offset + 1];
     }
 
+    /// <summary>解码完整 NPDU 报文</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="function">解码后的控制标志</param>
+    /// <param name="destination">解码后的目标地址（可为 null）</param>
+    /// <param name="source">解码后的源地址（可为 null）</param>
+    /// <param name="hopCount">解码后的跳数</param>
+    /// <param name="networkMsgType">网络层消息类型（仅 NetworkLayerMessage 时有效）</param>
+    /// <param name="vendorId">厂商 ID（仅网络层消息类型 >= 0x80 时有效）</param>
+    /// <returns>消耗的字节数，-1 表示协议版本不匹配</returns>
     public static int Decode(byte[] buffer, int offset, out BacnetNpduControls function, out BacnetAddress destination,
         out BacnetAddress source, out byte hopCount, out BacnetNetworkMessageTypes networkMsgType, out ushort vendorId)
     {
@@ -73,6 +86,14 @@ public class NPDU
         return offset - orgOffset;
     }
 
+    /// <summary>编码 NPDU 报文（含网络层消息类型和厂商 ID）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="function">控制标志</param>
+    /// <param name="destination">目标地址（可为 null）</param>
+    /// <param name="source">源地址（可为 null）</param>
+    /// <param name="hopCount">跳数</param>
+    /// <param name="networkMsgType">网络层消息类型</param>
+    /// <param name="vendorId">厂商 ID（networkMsgType >= 0x80 时写入）</param>
     public static void Encode(EncodeBuffer buffer, BacnetNpduControls function, BacnetAddress destination,
         BacnetAddress source, byte hopCount, BacnetNetworkMessageTypes networkMsgType, ushort vendorId)
     {
@@ -89,6 +110,12 @@ public class NPDU
         }
     }
 
+    /// <summary>编码 NPDU 报文（基础版本，不含网络层消息类型）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="function">控制标志</param>
+    /// <param name="destination">目标地址。net=0 或 null 时不写入</param>
+    /// <param name="source">源地址。net=0 或 0xFFFF 时不写入</param>
+    /// <param name="hopCount">跳数，默认 0xFF</param>
     public static void Encode(EncodeBuffer buffer, BacnetNpduControls function, BacnetAddress destination,
         BacnetAddress source = null, byte hopCount = 0xFF)
     {

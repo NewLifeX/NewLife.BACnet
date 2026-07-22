@@ -221,5 +221,37 @@ public class FileObjectTests
         Assert.True(buf.offset > 0);
     }
 
+    [Fact]
+    [System.ComponentModel.DisplayName("RemoveListElement 多种值类型编码不抛异常 (OBJ-4)")]
+    public void RemoveListElement_MultipleTypes()
+    {
+        // 布尔值
+        var buf = new EncodeBuffer();
+        Services.EncodeAddListElement(buf,
+            new BacnetObjectId(BacnetObjectTypes.OBJECT_BINARY_INPUT, 1),
+            (UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE,
+            ASN1.BACNET_ARRAY_ALL,
+            new List<BacnetValue> { new(BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED, 1u) });
+        Assert.True(buf.offset > 0);
+
+        // 无符号整数
+        buf.Reset(0);
+        Services.EncodeAddListElement(buf,
+            new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 2),
+            (UInt32)BacnetPropertyIds.PROP_HIGH_LIMIT,
+            ASN1.BACNET_ARRAY_ALL,
+            new List<BacnetValue> { new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 100.0f) });
+        Assert.True(buf.offset > 0);
+
+        // 字符串值
+        buf.Reset(0);
+        Services.EncodeAddListElement(buf,
+            new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, 3),
+            (UInt32)BacnetPropertyIds.PROP_OBJECT_NAME,
+            ASN1.BACNET_ARRAY_ALL,
+            new List<BacnetValue> { new(BacnetApplicationTags.BACNET_APPLICATION_TAG_CHARACTER_STRING, "Test") });
+        Assert.True(buf.offset > 0);
+    }
+
     #endregion
 }

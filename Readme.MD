@@ -20,13 +20,17 @@ Nuget：`NewLife.BACnet` | 目标框架：`netstandard2.0` + `net45`
 | **传输层** | BACnet/IP (IPv4/IPv6) UDP 传输，BBMD 广播管理与外部设备注册 |
 | **协议编解码** | ASN.1 BER / APDU / NPDU / BVLC 各层协议完整编解码 |
 | **设备发现** | Who-Is 广播自动发现，定向单播发现，定时重扫感知上下线 |
-| **属性读写** | 单属性与批量读写，Priority Array 写入优先级（1-16 级） |
-| **COV 变更通知** | 订阅属性变化实时推送，替代轮询 |
+| **属性读写** | 单属性与批量读写，Priority Array 写入优先级（1-16 级），invoke-id 按设备隔离 |
+| **COV 变更通知** | 订阅属性变化实时推送，替代轮询，支持订阅自动续约 |
 | **事件与报警** | 事件通知收发、报警摘要、报警确认全链路支持 |
 | **文件服务** | AtomicReadFile / AtomicWriteFile 支持设备配置文件备份恢复 |
 | **对象管理** | CreateObject / DeleteObject / AddListElement / RemoveListElement |
 | **BACnet 服务端** | 基于 XML 设备描述的仿真服务端，支持第三方楼控系统访问 |
 | **高级客户端 API** | `BacClient` 面向业务的简洁 API，字符串点位地址格式 `"实例_类型"` |
+| **异步 API** | 完整的 `ReadPropertyAsync`/`WritePropertyAsync` 等 Async/Await 方法集 |
+| **安全通信** | BACnet/SC (WebSocket + TLS) 安全传输，Hub/Node 与直连双模式 |
+| **标准服务补齐** | Who-Has/I-Have、时间同步、设备通信控制等标准 BACnet 服务 |
+| **日程表支持** | Schedule/Calendar 数据类型编解码（DailySchedule/SpecialEvent） |
 | **IoT 驱动集成** | 实现 `NewLife.IoT` 驱动接口，与 Modbus/西门子等统一管理 |
 | **可观测性** | `ITracer` APM 追踪 + `ILog` 日志，全链路可观测 |
 | **纯托管** | 零本地依赖，跨平台运行（Windows / Linux / macOS / ARM） |
@@ -34,7 +38,7 @@ Nuget：`NewLife.BACnet` | 目标框架：`netstandard2.0` + `net45`
 ## 文档索引
 
 - [需求文档](Doc/需求文档.md) — 愿景、核心目标与功能需求
-- [功能清单](Doc/功能清单.md) — 实现/测试/注释三维状态追踪（当前综合完成率 88%）
+- [功能清单](Doc/功能清单.md) — 实现/测试/注释三维状态追踪（当前综合完成率 90%）
 - [架构设计](Doc/架构设计.md) — 五层分层架构、组件与关键流程
 - [竞品分析](Doc/竞品分析.md) — 竞品对比矩阵、差距分析与战略建议
 

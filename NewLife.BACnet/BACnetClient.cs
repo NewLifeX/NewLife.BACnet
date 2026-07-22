@@ -228,10 +228,32 @@ public class BacnetClient : IDisposable
     public event ReadPropertyRequestHandler OnReadPropertyRequest;
     public delegate void ReadPropertyMultipleRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments maxSegments);
     public event ReadPropertyMultipleRequestHandler OnReadPropertyMultipleRequest;
+    /// <summary>写单个属性请求委托</summary>
+    /// <param name="sender">发送者</param>
+    /// <param name="adr">源地址</param>
+    /// <param name="invokeId">调用 ID</param>
+    /// <param name="objectId">目标对象 ID</param>
+    /// <param name="value">要写入的属性值</param>
+    /// <param name="maxSegments">最大分片数</param>
     public delegate void WritePropertyRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, BacnetPropertyValue value, BacnetMaxSegments maxSegments);
+    /// <summary>收到写单个属性请求时触发</summary>
     public event WritePropertyRequestHandler OnWritePropertyRequest;
+    /// <summary>写多属性请求委托（单个对象的多个属性）</summary>
+    /// <param name="sender">发送者</param>
+    /// <param name="adr">源地址</param>
+    /// <param name="invokeId">调用 ID</param>
+    /// <param name="objectId">目标对象 ID</param>
+    /// <param name="values">要写入的属性值集合</param>
+    /// <param name="maxSegments">最大分片数</param>
     public delegate void WritePropertyMultipleRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, BacnetObjectId objectId, ICollection<BacnetPropertyValue> values, BacnetMaxSegments maxSegments);
+    /// <summary>收到写多属性请求时触发</summary>
     public event WritePropertyMultipleRequestHandler OnWritePropertyMultipleRequest;
+    /// <summary>写多对象多属性请求委托</summary>
+    /// <param name="sender">发送者</param>
+    /// <param name="adr">源地址</param>
+    /// <param name="invokeId">调用 ID</param>
+    /// <param name="valueList">要写入的对象及其属性值集合列表</param>
+    /// <param name="maxSegments">最大分片数</param>
     public delegate void WriteObjectMultipleRequestHandler(BacnetClient sender, BacnetAddress adr, Byte invokeId, IList<(BacnetObjectId objectId, ICollection<BacnetPropertyValue> values)> valueList, BacnetMaxSegments maxSegments);
     /// <summary>多对象批量写入请求事件，对应 WritePropertyMultiple 含多个对象的报文</summary>
     public event WriteObjectMultipleRequestHandler OnWriteObjectMultipleRequest;

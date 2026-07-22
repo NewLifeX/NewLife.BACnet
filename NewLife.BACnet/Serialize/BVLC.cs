@@ -5,18 +5,37 @@ using NewLife.Log;
 
 namespace System.IO.BACnet.Serialize;
 
-// Special thanks to VTS tool (BBMD services not activated but programmed !) and Steve Karg stack
+/// <summary>BACnet 虚拟链路控制层（BVLC），处理 BACnet/IP 帧的编解码和 BBMD 转发。</summary>
+/// <remarks>
+/// 实现 BACnet 标准中 BVLL（BACnet Virtual Link Layer）的编解码，
+/// 包括 Original-Unicast-NPDU、Original-Broadcast-NPDU、Forwarded-NPDU 等帧类型。
+/// 支持 BBMD（BACnet Broadcast Management Device）的广播转发和
+/// Foreign Device 注册管理。
+/// 特别感谢 VTS tool 和 Steve Karg 开源栈的参考实现。
+/// </remarks>
 public class BVLC
 {
+    /// <summary>BVLC 消息接收回调委托</summary>
+    /// <param name="sender">发送端 IP 端点</param>
+    /// <param name="function">BVLC 功能码</param>
+    /// <param name="result">处理结果码</param>
+    /// <param name="data">附加数据</param>
     public delegate void BVLCMessageReceiveHandler(IPEndPoint sender, BacnetBvlcFunctions function, BacnetBvlcResults result, object data);
+
+    /// <summary>收到 BVLC 消息时触发</summary>
     public event BVLCMessageReceiveHandler MessageReceived;
 
     private readonly BacnetIpUdpProtocolTransport _myBbmdTransport;
     readonly string _broadcastAdd;
     private bool _bbmdFdServiceActivated;
 
+    /// <summary>BACnet/IP BVLL 类型标识</summary>
     public const byte BVLL_TYPE_BACNET_IP = 0x81;
+
+    /// <summary>BVLC 头长度（4 字节）</summary>
     public const byte BVLC_HEADER_LENGTH = 4;
+
+    /// <summary>BVLC 最大 APDU 长度（1476 字节）</summary>
     public const BacnetMaxAdpu BVLC_MAX_APDU = BacnetMaxAdpu.MAX_APDU1476;
 
     // Two lists for optional BBMD activity
@@ -27,14 +46,19 @@ public class BVLC
     // If empty it's equal to *.*.*.*, everyone allows
     private readonly List<Regex> _autorizedFdr = new();
 
+    /// <summary>日志实例</summary>
     public ILog Log { get; set; } = XTrace.Log;
 
+    /// <summary>初始化 BVLC 实例</summary>
+    /// <param name="transport">关联的 UDP 传输层</param>
     public BVLC(BacnetIpUdpProtocolTransport transport)
     {
         _myBbmdTransport = transport;
         _broadcastAdd = _myBbmdTransport.GetBroadcastAddress().ToString().Split(':')[0];
     }
 
+    /// <summary>获取已注册的 Foreign Device 列表</summary>
+    /// <returns>以分号分隔的 "IP:Port" 列表</returns>
     public string FDList()
     {
         var sb = new StringBuilder();
@@ -49,12 +73,16 @@ public class BVLC
         return sb.ToString();
     }
 
+    /// <summary>添加 Foreign Device 注册的 IP 规则（白名单）</summary>
+    /// <param name="ipRule">正则表达式规则。规则为空时接受所有 IP。</param>
     public void AddFDRAutorisationRule(Regex ipRule)
     {
         _autorizedFdr.Add(ipRule);
     }
 
-    // Used to initiate the BBMD & FD behaviour, if BBMD is null it start the FD activity only
+    /// <summary>添加 BBMD 对等体，启动 BBMD/FD 服务</summary>
+    /// <param name="bbmd">BBMD 端点。为 null 时仅启动 FD 活动。</param>
+    /// <param name="mask">广播分布掩码</param>
     public void AddBBMDPeer(IPEndPoint bbmd, IPAddress mask)
     {
         _bbmdFdServiceActivated = true;
@@ -196,6 +224,9 @@ public class BVLC
         _myBbmdTransport.Send(b, 6, sender);
     }
 
+    /// <summary>向 BBMD 发送 Foreign Device 注册请求</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="ttl">注册有效期（秒）</param>
     public void SendRegisterAsForeignDevice(IPEndPoint bbmd, short ttl)
     {
         var b = new byte[6];
@@ -205,6 +236,8 @@ public class BVLC
         _myBbmdTransport.Send(b, 6, bbmd);
     }
 
+    /// <summary>请求读取 BBMD 的广播分布表（BDT）</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
     public void SendReadBroadCastTable(IPEndPoint bbmd)
     {
         var b = new byte[4];
@@ -212,6 +245,8 @@ public class BVLC
         _myBbmdTransport.Send(b, 4, bbmd);
     }
 
+    /// <summary>请求读取 BBMD 的 Foreign Device 表（FDT）</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
     public void SendReadFDRTable(IPEndPoint bbmd)
     {
         var b = new byte[4];
@@ -219,6 +254,9 @@ public class BVLC
         _myBbmdTransport.Send(b, 4, bbmd);
     }
 
+    /// <summary>写入 BBMD 的广播分布表（BDT）</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="entries">BDT 条目列表，每个条目包含 BBMD 端点 + 分布掩码</param>
     public void SendWriteBroadCastTable(IPEndPoint bbmd, List<Tuple<IPEndPoint, IPAddress>> entries)
     {
         var b = new byte[4 + 10 * entries.Count];
@@ -235,6 +273,9 @@ public class BVLC
         _myBbmdTransport.Send(b, 4 + 10 * entries.Count, bbmd);
     }
 
+    /// <summary>请求 BBMD 删除指定的 Foreign Device 条目</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="foreignDevice">要删除的 Foreign Device 端点</param>
     public void SendDeleteForeignDeviceEntry(IPEndPoint bbmd, IPEndPoint foreignDevice)
     {
         var b = new byte[4 + 6];
@@ -245,6 +286,10 @@ public class BVLC
         _myBbmdTransport.Send(b, 4 + 6, bbmd);
     }
 
+    /// <summary>通过 BBMD 向远端网络发送 Who-Is 广播</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="msgLength">消息长度</param>
     public void SendRemoteWhois(byte[] buffer, IPEndPoint bbmd, int msgLength)
     {
         Encode(buffer, 0, BacnetBvlcFunctions.BVLC_DISTRIBUTE_BROADCAST_TO_NETWORK, msgLength);
@@ -252,7 +297,12 @@ public class BVLC
 
     }
 
-    // Encode is called by internal services if the BBMD is also an active device
+    /// <summary>编码 BVLC 头。内部服务（BBMD 自身也是活动设备时）调用此方法。</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移（通常为 0）</param>
+    /// <param name="function">BVLC 功能码</param>
+    /// <param name="msgLength">消息总长度</param>
+    /// <returns>BVLC 头长度（4 字节）</returns>
     public int Encode(byte[] buffer, int offset, BacnetBvlcFunctions function, int msgLength)
     {
         // offset always 0, we are the first after udp
@@ -273,7 +323,13 @@ public class BVLC
         return 4; // ready to send
     }
 
-    // Decode is called each time an Udp Frame is received
+    /// <summary>解码 BVLC 头。每次收到 UDP 帧时调用。</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移（通常为 0）</param>
+    /// <param name="function">解码后的 BVLC 功能码</param>
+    /// <param name="msgLength">解码后的消息长度</param>
+    /// <param name="sender">发送端 IP 端点</param>
+    /// <returns>BVLC 头长度（上层继续处理），0（已内部处理），-1（无效帧）</returns>
     public int Decode(byte[] buffer, int offset, out BacnetBvlcFunctions function, out int msgLength, IPEndPoint sender)
     {
         // offset always 0, we are the first after udp

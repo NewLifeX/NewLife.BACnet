@@ -2215,6 +2215,14 @@ public class Services
         return len;
     }
 
+    /// <summary>编码多属性写入请求（WritePropertyMultiple）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="objectId">目标对象 ID</param>
+    /// <param name="valueList">要写入的属性值列表</param>
+    /// <remarks>
+    /// 对应 BACnet 服务 WritePropertyMultiple，可一次性写入同一对象的多个属性。
+    /// 每个属性可独立指定属性标识、数组索引、值和写入优先级。
+    /// </remarks>
     public static void EncodeWritePropertyMultiple(EncodeBuffer buffer, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList)
     {
         ASN1.encode_context_object_id(buffer, 0, objectId.type, objectId.instance);
@@ -2246,6 +2254,10 @@ public class Services
         ASN1.encode_closing_tag(buffer, 1);
     }
 
+    /// <summary>编码多对象批量写入请求（WriteObjectMultiple）</summary>
+    /// <param name="buffer">编码缓冲区</param>
+    /// <param name="valueList">要写入的对象列表，每个对象包含其 ID 和属性值集合</param>
+    /// <remarks>实际上是多次调用 <see cref="EncodeWritePropertyMultiple"/> 依次编码每个对象的写入规格。</remarks>
     public static void EncodeWriteObjectMultiple(EncodeBuffer buffer, ICollection<BacnetReadAccessResult> valueList)
     {
         foreach (var value in valueList)
@@ -2270,7 +2282,14 @@ public class Services
     }
 
     // By C. Gunter
-    // quite the same as DecodeWritePropertyMultiple
+    /// <summary>解码创建对象请求（CreateObject），与 DecodeWritePropertyMultiple 结构相似</summary>
+    /// <param name="address">发送端地址</param>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apduLen">APDU 长度</param>
+    /// <param name="objectId">解码后的对象 ID</param>
+    /// <param name="valuesRefs">解码后的属性值列表</param>
+    /// <returns>消耗的字节数，失败返回 -1</returns>
     public static int DecodeCreateObject(BacnetAddress address, byte[] buffer, int offset, int apduLen, out BacnetObjectId objectId, out ICollection<BacnetPropertyValue> valuesRefs)
     {
         var len = 0;
@@ -2382,6 +2401,18 @@ public class Services
         ASN1.encode_application_object_id(buffer, objectId.type, objectId.instance);
     }
 
+    /// <summary>解码多属性写入请求（WritePropertyMultiple）</summary>
+    /// <param name="address">发送端地址</param>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移</param>
+    /// <param name="apduLen">APDU 长度</param>
+    /// <param name="objectId">解码后的目标对象 ID</param>
+    /// <param name="valuesRefs">解码后的属性值列表</param>
+    /// <returns>消耗的字节数，失败返回 -1</returns>
+    /// <remarks>
+    /// 解码单个对象的 WritePropertyMultiple 报文。配合 DecodeWriteObjectMultiple
+    /// 可解码多对象的批量写入请求。
+    /// </remarks>
     public static int DecodeWritePropertyMultiple(BacnetAddress address, byte[] buffer, int offset, int apduLen, out BacnetObjectId objectId, out ICollection<BacnetPropertyValue> valuesRefs)
     {
         var len = 0;

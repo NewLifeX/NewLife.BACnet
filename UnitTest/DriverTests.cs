@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using NewLife.BACnet.Drivers;
 using NewLife.BACnet.Protocols;
 using NewLife.IoT.Drivers;
@@ -127,4 +128,61 @@ public class DriverTests : IDisposable
             Thread.Sleep(100);
         }
     }
+
+    #region DRV-7 写入类型转换
+
+    [Fact]
+    [TestOrder(50)]
+    public async Task Write_Int32ToReal()
+    {
+        var dev = new ThingDevice();
+        var node = ((IDriver)_driver).Open(dev, _parameter);
+        Thread.Sleep(500);
+
+        // 写入整数，驱动应自动转换为 Real
+        var point = new PointModel { Name = "A_value", Address = "0_2" };
+        var requests = new[] { new WriteRequest { Point = point, Value = 123 } };
+        var rs = await _driver.WriteAsync(node, requests);
+        Assert.True(rs.IsSuccess);
+    }
+
+    [Fact]
+    [TestOrder(55)]
+    public async Task Write_DoubleToReal()
+    {
+        var dev = new ThingDevice();
+        var node = ((IDriver)_driver).Open(dev, _parameter);
+        Thread.Sleep(500);
+
+        var point = new PointModel { Name = "A_value", Address = "0_2" };
+        var requests = new[] { new WriteRequest { Point = point, Value = 456.78 } };
+        var rs = await _driver.WriteAsync(node, requests);
+        Assert.True(rs.IsSuccess);
+    }
+
+    #endregion
+
+    #region DRV-6 批量读取
+
+    [Fact]
+    [TestOrder(60)]
+    public async Task Read_Multiple()
+    {
+        var dev = new ThingDevice();
+        var node = ((IDriver)_driver).Open(dev, _parameter);
+        Thread.Sleep(500);
+
+        // 批量读取多个点位
+        var points = new IPoint[]
+        {
+            new PointModel { Name = "AI0", Address = "0_0" },
+            new PointModel { Name = "AV0", Address = "0_2" },
+        };
+
+        var rs = await _driver.ReadAsync(node, points);
+        Assert.True(rs.IsSuccess);
+        Assert.Equal(2, rs.Points.Length);
+    }
+
+    #endregion
 }

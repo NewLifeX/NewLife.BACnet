@@ -147,5 +147,136 @@ public class COVTests
         Assert.NotNull(decodedValues2);
     }
 
+    [Fact]
+    [System.ComponentModel.DisplayName("COV-4 确认通知编码→解码往返（含优先级）")]
+    public void ConfirmedCOVNotification_RoundTrip()
+    {
+        var subscriberId = 333u;
+        var initDeviceId = 444u;
+        var objId = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 10);
+        var timeRemaining = 600u;
+        var values = new List<BacnetPropertyValue>
+        {
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+                value = new List<BacnetValue> { new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 33.3f) },
+                priority = (Byte)8,
+            },
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_STATUS_FLAGS, ASN1.BACNET_ARRAY_ALL),
+                value = new List<BacnetValue>
+                {
+                    new(BacnetApplicationTags.BACNET_APPLICATION_TAG_BIT_STRING, BacnetBitString.Parse("0100"))
+                },
+                priority = (Byte)ASN1.BACNET_NO_PRIORITY,
+            }
+        };
+
+        // 使用确认通知编码
+        var buf = new EncodeBuffer();
+        Services.EncodeCOVNotifyConfirmed(buf, subscriberId, initDeviceId, objId, timeRemaining, values);
+
+        // 确认/未确认通知的载荷格式相同，使用同一解码函数
+        var len = Services.DecodeCOVNotifyUnconfirmed(default(BacnetAddress), buf.buffer, 0, buf.offset,
+            out var decodedSubscriberId,
+            out var decodedInitDeviceId,
+            out var decodedObjId,
+            out var decodedTimeRemaining,
+            out var decodedValues);
+
+        Assert.True(len > 0);
+        Assert.Equal(subscriberId, decodedSubscriberId);
+        Assert.Equal(initDeviceId, decodedInitDeviceId.instance);
+        Assert.Equal(objId.type, decodedObjId.type);
+        Assert.Equal(objId.instance, decodedObjId.instance);
+        Assert.Equal(timeRemaining, decodedTimeRemaining);
+        Assert.NotNull(decodedValues);
+
+        // 验证第一个值（含优先级）
+        var list = new List<BacnetPropertyValue>(decodedValues);
+        Assert.Equal(2, list.Count);
+        Assert.Equal((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, list[0].property.propertyIdentifier);
+        Assert.Equal((Byte)8, list[0].priority);
+
+        // 验证第二个值（无优先级）
+        Assert.Equal((UInt32)BacnetPropertyIds.PROP_STATUS_FLAGS, list[1].property.propertyIdentifier);
+        Assert.Equal((Byte)ASN1.BACNET_NO_PRIORITY, list[1].priority);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("COV-5 多种数据类型值通知编码→解码往返")]
+    public void COVNotify_MultipleTypes_RoundTrip()
+    {
+        var subscriberId = 555u;
+        var initDeviceId = 666u;
+        var objId = new BacnetObjectId(BacnetObjectTypes.OBJECT_BINARY_INPUT, 7);
+        var timeRemaining = 0u;
+
+        var values = new List<BacnetPropertyValue>
+        {
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+                value = new List<BacnetValue>
+                {
+                    new(BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED, (UInt32)0) // BINARY_INACTIVE
+                },
+                priority = (Byte)ASN1.BACNET_NO_PRIORITY,
+            },
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_STATUS_FLAGS, ASN1.BACNET_ARRAY_ALL),
+                value = new List<BacnetValue>
+                {
+                    new(BacnetApplicationTags.BACNET_APPLICATION_TAG_BIT_STRING, BacnetBitString.Parse("1000"))
+                },
+                priority = (Byte)ASN1.BACNET_NO_PRIORITY,
+            },
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_CHANGE_OF_STATE_TIME, ASN1.BACNET_ARRAY_ALL),
+                value = new List<BacnetValue>
+                {
+                    new(BacnetApplicationTags.BACNET_APPLICATION_TAG_OCTET_STRING, new Byte[] { 0x01, 0x02, 0x03, 0x04 })
+                },
+                priority = (Byte)ASN1.BACNET_NO_PRIORITY,
+            }
+        };
+
+        // 用未确认通知编码（服务端发送 COV 时的典型路径）
+        var buf = new EncodeBuffer();
+        Services.EncodeCOVNotifyUnconfirmed(buf, subscriberId, initDeviceId, objId, timeRemaining, values);
+
+        var len = Services.DecodeCOVNotifyUnconfirmed(default(BacnetAddress), buf.buffer, 0, buf.offset,
+            out var decodedSubscriberId,
+            out var decodedInitDeviceId,
+            out var decodedObjId,
+            out var decodedTimeRemaining,
+            out var decodedValues);
+
+        Assert.True(len > 0);
+        Assert.Equal(subscriberId, decodedSubscriberId);
+        Assert.Equal(initDeviceId, decodedInitDeviceId.instance);
+        Assert.Equal(objId.type, decodedObjId.type);
+        Assert.Equal(objId.instance, decodedObjId.instance);
+        Assert.Equal(timeRemaining, decodedTimeRemaining);
+        Assert.NotNull(decodedValues);
+
+        var list = new List<BacnetPropertyValue>(decodedValues);
+        Assert.Equal(3, list.Count);
+
+        // 验证第一个值（枚举类型）
+        Assert.Equal((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, list[0].property.propertyIdentifier);
+        Assert.Equal((UInt32)0, (UInt32)list[0].value[0].Value);
+
+        // 验证第二个值（位串类型）
+        Assert.Equal((UInt32)BacnetPropertyIds.PROP_STATUS_FLAGS, list[1].property.propertyIdentifier);
+
+        // 验证第三个值（字节串类型）
+        Assert.Equal((UInt32)BacnetPropertyIds.PROP_CHANGE_OF_STATE_TIME, list[2].property.propertyIdentifier);
+    }
+
     #endregion
 }

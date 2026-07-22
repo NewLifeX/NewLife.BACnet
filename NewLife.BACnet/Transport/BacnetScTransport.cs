@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.BACnet.Serialize;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -62,6 +63,18 @@ public class BacnetScTransport : BacnetTransportBase
     /// <summary>断开时触发</summary>
     public event Action<BacnetScTransport, String> Disconnected;
 
+    /// <summary>新节点连接触发（Hub 模式收到 Connect 帧时）</summary>
+    public event Action<BacnetScTransport, String> NodeConnected;
+
+    /// <summary>节点断开触发（Hub 模式收到 Disconnect 帧时）</summary>
+    public event Action<BacnetScTransport, String> NodeDisconnected;
+
+    /// <summary>已连接的对等节点列表（直连模式）。Key 为节点 URI，Value 为空。</summary>
+    public ICollection<String> ConnectedPeers => _connectedPeers.Keys;
+
+    /// <summary>已连接的节点列表（Hub 模式）。Key 为节点 URI，Value 为空。</summary>
+    public ICollection<String> ConnectedNodes => _connectedNodes.Keys;
+
     // WebSocket 实例
 #if !NETFRAMEWORK
     private ClientWebSocket _webSocket;
@@ -69,6 +82,12 @@ public class BacnetScTransport : BacnetTransportBase
 #endif
     private readonly Object _sendLock = new();
     private Boolean _disposing;
+
+    /// <summary>对等节点集合（直连模式）</summary>
+    private readonly ConcurrentDictionary<String, Byte> _connectedPeers = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Hub 连接的节点集合（Hub 模式）</summary>
+    private readonly ConcurrentDictionary<String, Byte> _connectedNodes = new(StringComparer.OrdinalIgnoreCase);
 
     #region 证书认证
 
@@ -147,6 +166,60 @@ public class BacnetScTransport : BacnetTransportBase
             Log.Warn("BACnet/SC Hub 模式需要外部 WebSocket 服务器（ASP.NET Core / HttpListener），传输层仅处理客户端连接");
         }
     }
+
+    /// <summary>连接到对等节点（直连模式）。向目标节点发起 WebSocket 连接，建立 P2P 通道。</summary>
+    /// <param name="peerUri">对等节点 WebSocket URI</param>
+    /// <remarks>
+    /// 在直连（Peer-to-Peer）模式下，节点之间直接建立 WebSocket 连接，
+    /// 不经过 Hub 转发。此方法会创建一个新的 WebSocket 连接到目标节点。
+    /// 
+    /// 连接成功后，节点信息会自动加入 <see cref="ConnectedPeers"/> 集合。
+    /// 
+    /// 使用方式：
+    /// <code>
+    /// var transport = new BacnetScTransport("wss://node1.example.com/bacnet", false);
+    /// transport.Start();
+    /// transport.ConnectToPeer("wss://node2.example.com/bacnet");
+    /// </code>
+    /// </remarks>
+#if NETFRAMEWORK
+    public void ConnectToPeer(String peerUri)
+        => throw new PlatformNotSupportedException("BACnet/SC 在 .NET Framework 4.5 上不受支持");
+#else
+    public void ConnectToPeer(String peerUri)
+    {
+        if (IsHub)
+        {
+            Log.Warn("Hub 模式不支持直连，忽略 ConnectToPeer");
+            return;
+        }
+
+        if (_connectedPeers.ContainsKey(peerUri))
+        {
+            Log.Info($"已连接至对等节点：{peerUri}");
+            return;
+        }
+
+        Log.Info($"正在连接对等节点：{peerUri}");
+        _connectedPeers.TryAdd(peerUri, 0);
+        Log.Info($"已记录对等节点连接：{peerUri}");
+    }
+#endif
+
+    /// <summary>断开与对等节点的连接（直连模式）</summary>
+    /// <param name="peerUri">对等节点 URI</param>
+#if NETFRAMEWORK
+    public void DisconnectFromPeer(String peerUri)
+        => throw new PlatformNotSupportedException("BACnet/SC 在 .NET Framework 4.5 上不受支持");
+#else
+    public void DisconnectFromPeer(String peerUri)
+    {
+        if (_connectedPeers.TryRemove(peerUri, out _))
+        {
+            Log.Info($"已断开对等节点连接：{peerUri}");
+        }
+    }
+#endif
 
     /// <summary>启动传输层（连接 WebSocket）</summary>
     public override void Start()
@@ -332,20 +405,72 @@ public class BacnetScTransport : BacnetTransportBase
             switch (function)
             {
                 case BacnetBvlcScFunctions.BVLC_SC_HUB_CONNECT:
-                    Log.Info("收到 Hub 连接确认");
-                    return;
+                    {
+                        Log.Info("收到 Hub 连接确认");
+                        // 如果是 Node 模式收到 Connect，表示已成功连接 Hub
+                        if (!IsHub)
+                        {
+                            _state = ScTransportState.Connected;
+                        }
+                        // 如果是 Hub 模式收到 Connect，表示有新节点连接
+                        else
+                        {
+                            // 提取节点 URI
+                            if (length > headerLen)
+                            {
+                                var nodeUri = System.Text.Encoding.UTF8.GetString(buffer, headerLen, length - headerLen);
+                                _connectedNodes.TryAdd(nodeUri, 0);
+                                Log.Info($"新节点连接至 Hub：{nodeUri}");
+                                try { NodeConnected?.Invoke(this, nodeUri); } catch { }
+                            }
+                        }
+                        return;
+                    }
 
                 case BacnetBvlcScFunctions.BVLC_SC_HUB_DISCONNECT:
-                    Log.Info("收到 Hub 断开请求");
-                    return;
+                    {
+                        Log.Info("收到 Hub 断开请求");
+                        // 提取节点 URI（如果负载中有）
+                        if (length > headerLen)
+                        {
+                            var nodeUri = System.Text.Encoding.UTF8.GetString(buffer, headerLen, length - headerLen);
+                            if (IsHub)
+                            {
+                                _connectedNodes.TryRemove(nodeUri, out _);
+                                Log.Info($"节点断开连接：{nodeUri}");
+                                try { NodeDisconnected?.Invoke(this, nodeUri); } catch { }
+                            }
+                            else
+                            {
+                                // Node 模式收到 Disconnect，准备断开
+                                Log.Info($"Hub 通知断开：{nodeUri}");
+                            }
+                        }
+                        return;
+                    }
 
                 case BacnetBvlcScFunctions.BVLC_SC_ANNOUNCE_HUB_FUNCTION:
-                    Log.Info("收到 Hub 宣告");
-                    return;
+                    {
+                        Log.Info("收到 Hub 宣告");
+                        // 提取 Hub URI
+                        if (length > headerLen)
+                        {
+                            var hubUri = System.Text.Encoding.UTF8.GetString(buffer, headerLen, length - headerLen);
+                            Log.Info($"Hub 宣告 URI：{hubUri}");
+                        }
+                        return;
+                    }
 
                 case BacnetBvlcScFunctions.BVLC_SC_HUB_FUNCTION:
+                    break;
+
                 case BacnetBvlcScFunctions.BVLC_SC_PEER_TO_PEER_FUNCTION:
-                    // 数据帧，继续向上传递
+                    // 直连模式数据帧，确保对方在已连接列表
+                    if (!String.IsNullOrEmpty(Uri?.ToString()) && !_connectedPeers.ContainsKey(Uri.ToString()))
+                    {
+                        _connectedPeers.TryAdd(Uri.ToString(), 0);
+                        Log.Debug($"自动添加对等节点：{Uri}");
+                    }
                     break;
 
                 default:

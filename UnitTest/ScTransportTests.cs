@@ -350,4 +350,123 @@ public class ScTransportTests
     }
 
     #endregion
+
+    #region SEC-3 直连模式 (Peer-to-Peer)
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-3 ConnectedPeers 初始为空")]
+    public void ScTransport_ConnectedPeers_Initial()
+    {
+        var transport = new BacnetScTransport("wss://node1.example.com/bacnet", false);
+        Assert.NotNull(transport.ConnectedPeers);
+        Assert.Empty(transport.ConnectedPeers);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-3 ConnectToPeer 添加对等节点")]
+    public void ScTransport_ConnectToPeer()
+    {
+        var transport = new BacnetScTransport("wss://node1.example.com/bacnet", false);
+
+        transport.ConnectToPeer("wss://node2.example.com/bacnet");
+        Assert.Contains("wss://node2.example.com/bacnet", transport.ConnectedPeers);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-3 ConnectToPeer 重复添加不报错")]
+    public void ScTransport_ConnectToPeer_Duplicate()
+    {
+        var transport = new BacnetScTransport("wss://node1.example.com/bacnet", false);
+
+        transport.ConnectToPeer("wss://node2.example.com/bacnet");
+        transport.ConnectToPeer("wss://node2.example.com/bacnet"); // 不应报错
+        Assert.Single(transport.ConnectedPeers);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-3 DisconnectFromPeer 移除对等节点")]
+    public void ScTransport_DisconnectFromPeer()
+    {
+        var transport = new BacnetScTransport("wss://node1.example.com/bacnet", false);
+
+        transport.ConnectToPeer("wss://node2.example.com/bacnet");
+        Assert.Contains("wss://node2.example.com/bacnet", transport.ConnectedPeers);
+
+        transport.DisconnectFromPeer("wss://node2.example.com/bacnet");
+        Assert.DoesNotContain("wss://node2.example.com/bacnet", transport.ConnectedPeers);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-3 Hub 模式禁止直连")]
+    public void ScTransport_HubMode_NoPeerToPeer()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", true);
+
+        // Hub 模式下 ConnectToPeer 应记录警告但不报错
+        transport.ConnectToPeer("wss://node1.example.com/bacnet");
+        // Hub 模式不会添加对等节点
+        Assert.Empty(transport.ConnectedPeers);
+    }
+
+    #endregion
+
+    #region SEC-4 Hub/Node 架构
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-4 ConnectedNodes 初始为空")]
+    public void ScTransport_ConnectedNodes_Initial()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", true);
+        Assert.NotNull(transport.ConnectedNodes);
+        Assert.Empty(transport.ConnectedNodes);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-4 Node 模式构造正确")]
+    public void ScTransport_NodeMode()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", false);
+        Assert.False(transport.IsHub);
+        Assert.Equal("wss://hub.example.com/bacnet", transport.Uri.ToString());
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-4 Hub 模式构造正确")]
+    public void ScTransport_HubMode()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com:47810/bacnet", true);
+        Assert.True(transport.IsHub);
+        Assert.Equal("wss://hub.example.com:47810/bacnet", transport.Uri.ToString());
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-4 BVLCSC CreateHubDisconnectFrame 帧结构正确")]
+    public void ScTransport_HubDisconnectFrame()
+    {
+        var frame = BVLCSC.CreateHubDisconnectFrame();
+
+        Assert.Equal(4, frame.Length);
+        Assert.Equal(0x83, frame[0]);
+        Assert.Equal((Byte)BacnetBvlcScFunctions.BVLC_SC_HUB_DISCONNECT, frame[1]);
+        Assert.Equal(4, (frame[2] << 8) | frame[3]);
+    }
+
+    [Fact]
+    [System.ComponentModel.DisplayName("SEC-4 Hub/Node 事件注册不抛异常")]
+    public void ScTransport_HubEvents()
+    {
+        var transport = new BacnetScTransport("wss://hub.example.com/bacnet", true);
+
+        // 验证事件注册不抛异常
+        transport.NodeConnected += (t, uri) => { };
+        transport.NodeDisconnected += (t, uri) => { };
+
+        // 也验证 Disconnected 事件（已有）
+        transport.Disconnected += (t, reason) => { };
+
+        Assert.NotNull(transport);
+        Assert.True(transport.IsHub);
+    }
+
+    #endregion
 }

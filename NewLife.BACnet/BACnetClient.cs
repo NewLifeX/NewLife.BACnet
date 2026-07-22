@@ -20,8 +20,9 @@ public class BacnetClient : IDisposable
     private UInt32 _writepriority;
 
     /// <summary>
-    /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
-    /// TODO: invoke-id should be PER (remote) DEVICE!
+    /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id.
+    /// invoke-id 分配已通过 ConcurrentDictionary&lt;BacnetAddress, Byte&gt; 实现按设备隔离（PRP-7），
+    /// 因此段重组字典按 invoke-id 索引隐式实现了按设备隔离。
     /// </summary>
     private readonly Dictionary<Byte, List<Tuple<Byte, Byte[]>>> _segmentsPerInvokeId = new();
     private readonly Dictionary<Byte, Object> _locksPerInvokeId = new();

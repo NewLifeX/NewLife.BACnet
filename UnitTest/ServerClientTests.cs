@@ -6,6 +6,7 @@ using System.IO.BACnet.Storage;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using NewLife;
 using NewLife.BACnet.Protocols;
 using NewLife.Log;
@@ -396,6 +397,73 @@ public class ServerClientTests : IDisposable
         Assert.Equal(oid.instance, changedObj.instance);
     }
 
+    #endregion
+
+    #region Async API
+    [Fact]
+    [TestOrder(45)]
+    [System.ComponentModel.DisplayName("环回：异步 ReadPropertyAsync 读取 AI:0 现在值")]
+    public async Task ReadPropertyAsync_AnalogInput()
+    {
+        var node = GetServerNode();
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
+
+        var value = await _client.ReadPropertyAsync(node.Address, oid);
+        Assert.NotNull(value);
+        XTrace.WriteLine("Async AI:0 PresentValue = {0}", value);
+        Assert.Equal(42.0, Convert.ToDouble(value), precision: 3);
+    }
+
+    [Fact]
+    [TestOrder(46)]
+    [System.ComponentModel.DisplayName("环回：异步 WritePropertyAsync 写入 AV:0 并读回验证")]
+    public async Task WritePropertyAsync_AnalogValue_Roundtrip()
+    {
+        var node = GetServerNode();
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+        const Single expected = 789.0f;
+
+        var ok = await _client.WritePropertyAsync(node.Address, oid, expected);
+        Assert.True(ok);
+
+        // 异步读回验证
+        var readBack = await _client.ReadPropertyAsync(node.Address, oid);
+        Assert.NotNull(readBack);
+        Assert.Equal(expected, Convert.ToSingle(readBack), precision: 3);
+    }
+
+    [Fact]
+    [TestOrder(47)]
+    [System.ComponentModel.DisplayName("环回：并发多个异步请求")]
+    public async Task ConcurrentAsyncRequests()
+    {
+        var node = GetServerNode();
+        var tasks = new List<Task<System.Object>>();
+
+        // 并发发送 5 个异步读请求
+        for (var i = 0; i < 5; i++)
+        {
+            var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+            tasks.Add(_client.ReadPropertyAsync(node.Address, oid));
+        }
+
+        var results = await Task.WhenAll(tasks);
+        Assert.All(results, r => Assert.NotNull(r));
+        XTrace.WriteLine("并发 5 个异步请求全部完成");
+    }
+
+    [Fact]
+    [TestOrder(48)]
+    [System.ComponentModel.DisplayName("环回：BACnetClient 直接异步 ReadPropertyAsync")]
+    public async Task ClientRawAsync_ReadProperty()
+    {
+        var node = GetServerNode();
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0);
+
+        var rs = await _client.Client.ReadPropertyAsync(node.Address, oid, BacnetPropertyIds.PROP_PRESENT_VALUE);
+        Assert.NotEmpty(rs);
+        Assert.Equal(42.0, Convert.ToDouble(rs[0].Value), precision: 3);
+    }
     #endregion
 
     #region COV 订阅

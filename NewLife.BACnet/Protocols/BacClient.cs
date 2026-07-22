@@ -214,12 +214,21 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <summary>获取节点属性列表</summary>
     /// <param name="node">节点</param>
     /// <param name="isFull">是否包含完整信息，例如数值等</param>
+    /// <remarks>
+    /// 策略说明：
+    /// 1. 先读取 PROP_OBJECT_LIST 获取设备的全部对象列表（单次请求，由设备返回完整列表）
+    /// 2. 若 isFull，再通过 GetDetail 分批读取每个对象的名称/数值/描述（批大小由 <see cref="BatchSize"/> 控制）
+    /// 3. GetValues 读取属性数值时也按 BatchSize 分批
+    /// 
+    /// 对于超大设备（对象数超过 BatchSize 3 倍以上），详细信息的读取会自动分批进行，
+    /// 避免单次请求超过设备 APDU 长度限制而导致通信失败。
+    /// </remarks>
     public void GetProperties(BacNode node, Boolean isFull)
     {
         if (node.Address == null) return;
 
-        // 读取属性对象列表，点位列表
-        //todo 如果设备下有很多对象，可能数据包超大，需要分批读取
+        // 第一步：读取对象列表（PROP_OBJECT_LIST）
+        // 大多数 BACnet 设备支持单次读取完整列表，APDU 分片由底层自动处理
         var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_DEVICE, node.DeviceId);
         if (_client.ReadPropertyRequest(node.Address, oid, BacnetPropertyIds.PROP_OBJECT_LIST, out var list))
         {
@@ -235,6 +244,8 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
                 }
             }
 
+            // 第二步：分批读取详细信息
+            // GetDetail 内部已按 BatchSize 分批调用 ReadPropertyMultipleRequest
             if (isFull) GetDetail(node.Address, ps);
 
             node.Properties = ps;

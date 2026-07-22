@@ -30,6 +30,10 @@ public class BVLCV6
     /// <summary>日志实例</summary>
     public ILog Log { get; set; } = XTrace.Log;
 
+    /// <summary>初始化 BVLCV6 实例</summary>
+    /// <param name="transport">关联的 IPv6 UDP 传输层</param>
+    /// <param name="vMac">虚拟 MAC 地址（-1 表示随机生成，否则使用指定值的高 3 字节）</param>
+    /// <remarks>随机 VMAC 时确保高位为 01xxxxxx；指定 VMAC 时高位强制为 0，唯一性由调用者保证。</remarks>
     public BVLCV6(BacnetIpV6UdpProtocolTransport transport, Int32 vMac)
     {
         _myTransport = transport;
@@ -175,6 +179,9 @@ public class BVLCV6
         _myTransport.Send(b, 9, sender);
     }
 
+    /// <summary>向 BBMD 发送 Foreign Device 注册请求</summary>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="ttl">注册有效期（秒）</param>
     public void SendRegisterAsForeignDevice(IPEndPoint bbmd, Int16 ttl)
     {
         var b = new Byte[9];
@@ -184,6 +191,10 @@ public class BVLCV6
         _myTransport.Send(b, 9, bbmd);
     }
 
+    /// <summary>通过 BBMD 向远端网络发送 Who-Is 广播</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="bbmd">目标 BBMD 端点</param>
+    /// <param name="msgLength">消息长度</param>
     public void SendRemoteWhois(Byte[] buffer, IPEndPoint bbmd, Int32 msgLength)
     {
         // 7 bytes for the BVLC Header
@@ -211,7 +222,13 @@ public class BVLCV6
         _myTransport.Send(b, 10, ep);
     }
 
-    // Encode is called by internal services if the BBMD is also an active device
+    /// <summary>编码 BVLCV6 帧头。由内部服务调用（当 BBMD 同时也是活动设备时）</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移（通常为 0）</param>
+    /// <param name="function">BVLCV6 功能码</param>
+    /// <param name="msgLength">消息总长度</param>
+    /// <param name="address">目标 BACnet 地址</param>
+    /// <returns>BVLC 头长度（7 字节广播或 10 字节单播）</returns>
     public Int32 Encode(Byte[] buffer, Int32 offset, BacnetBvlcV6Functions function, Int32 msgLength, BacnetAddress address)
     {
         // offset always 0, we are the first after udp
@@ -238,7 +255,14 @@ public class BVLCV6
         return 10; // ready to send
     }
 
-    // Decode is called each time an Udp Frame is received
+    /// <summary>解码 BVLCV6 帧头。每次收到 UDP 帧时调用。</summary>
+    /// <param name="buffer">数据缓冲区</param>
+    /// <param name="offset">起始偏移（通常为 0）</param>
+    /// <param name="function">解码后的功能码</param>
+    /// <param name="msgLength">解码后的消息长度</param>
+    /// <param name="sender">发送端 IP 端点</param>
+    /// <param name="remoteAddress">解码后的远程 BACnet 地址</param>
+    /// <returns>BVLC 头长度（上层继续处理），-1（无效帧）</returns>
     public Int32 Decode(Byte[] buffer, Int32 offset, out BacnetBvlcV6Functions function, out Int32 msgLength,
         IPEndPoint sender, BacnetAddress remoteAddress)
     {

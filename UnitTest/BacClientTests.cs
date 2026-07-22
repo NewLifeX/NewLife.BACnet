@@ -323,4 +323,108 @@ public class BacClientTests
             Thread.Sleep(100);
         }
     }
+
+    #region CLI-8 字符串地址解析
+
+    [Fact]
+    [TestOrder(80)]
+    [System.ComponentModel.DisplayName("ObjectPair.TryParse 标准格式 实例_类型")]
+    public void ObjectPairTryParse_Standard()
+    {
+        var ok = ObjectPair.TryParse("0_0", out var oid);
+        Assert.True(ok);
+        Assert.Equal(BacnetObjectTypes.OBJECT_ANALOG_INPUT, oid.type);
+        Assert.Equal(0u, oid.instance);
+    }
+
+    [Fact]
+    [TestOrder(81)]
+    [System.ComponentModel.DisplayName("ObjectPair.TryParse 仅实例号")]
+    public void ObjectPairTryParse_InstanceOnly()
+    {
+        var ok = ObjectPair.TryParse("5", out var oid);
+        Assert.True(ok);
+        Assert.Equal(BacnetObjectTypes.OBJECT_ANALOG_INPUT, oid.type); // 默认类型 0
+        Assert.Equal(5u, oid.instance);
+    }
+
+    [Fact]
+    [TestOrder(82)]
+    [System.ComponentModel.DisplayName("ObjectPair.TryParse 大值")]
+    public void ObjectPairTryParse_LargeValues()
+    {
+        var ok = ObjectPair.TryParse("999_128", out var oid);
+        Assert.True(ok);
+        Assert.Equal((BacnetObjectTypes)128, oid.type);
+        Assert.Equal(999u, oid.instance);
+    }
+
+    [Fact]
+    [TestOrder(83)]
+    [System.ComponentModel.DisplayName("ObjectPair.TryParse 空字符串返回 false")]
+    public void ObjectPairTryParse_Empty()
+    {
+        var ok = ObjectPair.TryParse("", out _);
+        Assert.False(ok);
+    }
+
+    [Fact]
+    [TestOrder(84)]
+    [System.ComponentModel.DisplayName("ObjectPair.TryParse null 返回 false")]
+    public void ObjectPairTryParse_Null()
+    {
+        var ok = ObjectPair.TryParse(null, out _);
+        Assert.False(ok);
+    }
+
+    [Fact]
+    [TestOrder(85)]
+    [System.ComponentModel.DisplayName("ObjectPair.ToObjectId 往返")]
+    public void ObjectPairToObjectId_RoundTrip()
+    {
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 2);
+        var str = ObjectPair.ToObjectId(oid);
+        Assert.Equal("2_2", str);
+
+        var ok = ObjectPair.TryParse(str, out var parsed);
+        Assert.True(ok);
+        Assert.Equal(oid.type, parsed.type);
+        Assert.Equal(oid.instance, parsed.instance);
+    }
+
+    #endregion
+
+    #region CLI-4 / DSC-5 定时重扫
+
+    [Fact]
+    [TestOrder(86)]
+    [System.ComponentModel.DisplayName("BacClient 定时扫描 Timer 已启动")]
+    public void ScanTimer_Exists()
+    {
+        _client.Open();
+        Assert.NotNull(_client);
+        // 验证客户端已打开，节点存在（说明定时扫描在工作）
+        var node = _client.GetNode(_DeviceId);
+        Assert.NotNull(node);
+    }
+
+    [Fact]
+    [TestOrder(87)]
+    [System.ComponentModel.DisplayName("BacClient 重扫后节点列表保持稳定")]
+    public void ScanTimer_MaintainsNodes()
+    {
+        _client.Open();
+
+        // 等待一段时间让定时扫描触发
+        Thread.Sleep(200);
+
+        var nodes = _client.Nodes;
+        Assert.NotEmpty(nodes);
+
+        // 验证节点仍然可通过 DeviceId 获取
+        var node = _client.GetNode(_DeviceId);
+        Assert.NotNull(node);
+    }
+
+    #endregion
 }

@@ -462,6 +462,16 @@ public class ASN1
                 //is this the right way to do it, I wonder?
                 break;
 
+            case BacnetApplicationTags.BACNET_APPLICATION_TAG_WEEKLY_SCHEDULE:
+                var weeklySchedule = (BacnetDailySchedule)value.Value;
+                weeklySchedule.Encode(buffer);
+                break;
+
+            case BacnetApplicationTags.BACNET_APPLICATION_TAG_SPECIAL_EVENT:
+                var specialEvent = (BacnetSpecialEvent)value.Value;
+                specialEvent.Encode(buffer);
+                break;
+
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_READ_ACCESS_RESULT:
                 encode_read_access_result(buffer, (BacnetReadAccessResult)value.Value);
                 //is this the right way to do it, I wonder?
@@ -1889,6 +1899,11 @@ public class ASN1
                         break;
                 }
                 break;
+            case BacnetPropertyIds.PROP_WEEKLY_SCHEDULE:
+            case BacnetPropertyIds.PROP_SCHEDULE_DEFAULT:
+                /* BACnetDailySchedule - sequence of BACnetTimeValue */
+                break;
+
             default:
                 tag = CustomTagResolver?.Invoke(address, property, tagNumber) ?? tag;
                 break;
@@ -2015,6 +2030,25 @@ public class ASN1
                 tagLen = v.Decode(buffer, offset, (uint)maxOffset);
                 if (tagLen < 0) return -1;
                 value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED;
+                value.Value = v;
+                return tagLen;
+            }
+            if (propertyId == BacnetPropertyIds.PROP_WEEKLY_SCHEDULE ||
+                propertyId == BacnetPropertyIds.PROP_SCHEDULE_DEFAULT)
+            {
+                var v = new BacnetDailySchedule();
+                tagLen = v.Decode(buffer, offset, (uint)maxOffset);
+                if (tagLen < 0) return -1;
+                value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_WEEKLY_SCHEDULE;
+                value.Value = v;
+                return tagLen;
+            }
+            if (propertyId == BacnetPropertyIds.PROP_EXCEPTION_SCHEDULE)
+            {
+                var v = new BacnetSpecialEvent();
+                tagLen = v.Decode(buffer, offset, (uint)maxOffset);
+                if (tagLen < 0) return -1;
+                value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_SPECIAL_EVENT;
                 value.Value = v;
                 return tagLen;
             }

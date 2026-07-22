@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO.BACnet;
+using System.IO.BACnet.Serialize;
 using System.IO.BACnet.Storage;
 using System.Net;
 using System.Net.Sockets;
@@ -216,6 +217,185 @@ public class ServerClientTests : IDisposable
         Assert.True(results.ContainsKey("0_0"));
         Assert.True(results.ContainsKey("0_2"));
     }
+    #endregion
+
+    #region WritePropertyMultiple (SRV-6)
+
+    [Fact]
+    [TestOrder(45)]
+    [System.ComponentModel.DisplayName("环回：WritePropertyMultiple 批量写入 AV:0 优先级+值")]
+    public void WritePropertyMultiple_AnalogValue()
+    {
+        var node = GetServerNode();
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+        var values = new List<BacnetValue>
+        {
+            new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 200.0f),
+        };
+        var propValues = new List<BacnetPropertyValue>
+        {
+            new()
+            {
+                property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+                value = values,
+                priority = 8,
+            }
+        };
+
+        var ok = _client.Client.WritePropertyMultipleRequest(node.Address, oid, propValues);
+        Assert.True(ok);
+
+        // 读回验证
+        var readBack = _client.ReadProperty(node.Address, oid);
+        Assert.NotNull(readBack);
+        Assert.Equal(200.0f, Convert.ToSingle(readBack), precision: 3);
+    }
+
+    #endregion
+
+    #region WriteObjectMultiple (SRV-7)
+
+    [Fact]
+    [TestOrder(46)]
+    [System.ComponentModel.DisplayName("环回：WriteObjectMultiple 多对象批量写入")]
+    public void WriteObjectMultiple_MultipleObjects()
+    {
+        var node = GetServerNode();
+
+        // 构造多对象写入参数
+        var avOid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+        var avValues = new List<BacnetValue>
+        {
+            new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 300.0f),
+        };
+
+        var readResults = new List<BacnetReadAccessResult>
+        {
+            new()
+            {
+                objectIdentifier = avOid,
+                values = new List<BacnetPropertyValue>
+                {
+                    new()
+                    {
+                        property = new BacnetPropertyReference((UInt32)BacnetPropertyIds.PROP_PRESENT_VALUE, ASN1.BACNET_ARRAY_ALL),
+                        value = avValues,
+                        priority = 8,
+                    }
+                }
+            }
+        };
+
+        var ok = _client.Client.WritePropertyMultipleRequest(node.Address, readResults);
+        Assert.True(ok);
+
+        // 读回验证
+        var readBack = _client.ReadProperty(node.Address, avOid);
+        Assert.NotNull(readBack);
+        Assert.Equal(300.0f, Convert.ToSingle(readBack), precision: 3);
+    }
+
+    #endregion
+
+    #region 属性读写事件钩子 (SRV-9)
+
+    [Fact]
+    [TestOrder(47)]
+    [System.ComponentModel.DisplayName("环回：ReadOverride 事件钩子拦截读取")]
+    public void ReadOverride_Hook()
+    {
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 6);
+        // 注册 ReadOverride 事件：拦截 AV:6 返回固定值
+        Boolean handled = false;
+        _server.Storage.ReadOverride += (BacnetObjectId objectId, BacnetPropertyIds propertyId,
+            UInt32 arrayIndex, out IList<BacnetValue> value, out DeviceStorage.ErrorCodes status, out Boolean h) =>
+        {
+            if (objectId.type == oid.type && objectId.instance == oid.instance)
+            {
+                value = new List<BacnetValue>
+                {
+                    new(BacnetApplicationTags.BACNET_APPLICATION_TAG_REAL, 999.0f)
+                };
+                status = DeviceStorage.ErrorCodes.Good;
+                h = true;
+                handled = true;
+                return;
+            }
+            value = null;
+            status = DeviceStorage.ErrorCodes.Good;
+            h = false;
+        };
+
+        var node = GetServerNode();
+        var readBack = _client.ReadProperty(node.Address, oid);
+
+        // 验证读回的是钩子返回的值而不是存储值
+        Assert.True(handled, "ReadOverride 应被触发");
+        Assert.NotNull(readBack);
+        Assert.Equal(999.0f, Convert.ToSingle(readBack), precision: 3);
+    }
+
+    [Fact]
+    [TestOrder(48)]
+    [System.ComponentModel.DisplayName("环回：WriteOverride 事件钩子拦截写入")]
+    public void WriteOverride_Hook()
+    {
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+        Boolean handled = false;
+        _server.Storage.WriteOverride += (BacnetObjectId objectId, BacnetPropertyIds propertyId,
+            UInt32 arrayIndex, IList<BacnetValue> value, out DeviceStorage.ErrorCodes status, out Boolean h) =>
+        {
+            if (objectId.type == oid.type && objectId.instance == oid.instance &&
+                propertyId == BacnetPropertyIds.PROP_PRESENT_VALUE)
+            {
+                // 拒绝写入
+                status = DeviceStorage.ErrorCodes.WriteAccessDenied;
+                h = true;
+                handled = true;
+                return;
+            }
+            status = DeviceStorage.ErrorCodes.Good;
+            h = false;
+        };
+
+        var node = GetServerNode();
+        // 使用优先级 8 确保服务器端 WriteCommandableProperty 正确处理
+        _client.Client.WritePriority = 8;
+        var ok = _client.WriteProperty(node.Address, oid, 777.0f);
+        _client.Client.WritePriority = 0;
+
+        Assert.True(handled, "WriteOverride 应被触发");
+    }
+
+    #endregion
+
+    #region 属性变化事件 (SRV-10)
+
+    [Fact]
+    [TestOrder(49)]
+    [System.ComponentModel.DisplayName("环回：ChangeOfValue 事件在属性变化时触发")]
+    public void ChangeOfValue_Event()
+    {
+        var oid = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_VALUE, 0);
+        Boolean eventFired = false;
+        BacnetObjectId changedObj = default;
+
+        _server.Storage.ChangeOfValue += (DeviceStorage sender, BacnetObjectId objectId,
+            BacnetPropertyIds propertyId, UInt32 arrayIndex, IList<BacnetValue> value) =>
+        {
+            eventFired = true;
+            changedObj = objectId;
+        };
+
+        // 触发写入，应触发 ChangeOfValue 事件
+        var node = GetServerNode();
+        _client.WriteProperty(node.Address, oid, 456.0f);
+
+        Assert.True(eventFired, "ChangeOfValue 事件应在属性写入后被触发");
+        Assert.Equal(oid.type, changedObj.type);
+        Assert.Equal(oid.instance, changedObj.instance);
+    }
+
     #endregion
 
     #region COV 订阅

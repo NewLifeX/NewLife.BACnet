@@ -611,4 +611,49 @@ public class BacClient : DisposeBase, ITracerFeature, ILogFeature
     /// <param name="args"></param>
     public void WriteLog(String format, params Object[] args) => Log?.Info(format, args);
     #endregion
+
+    #region Async 封装
+    /// <summary>异步读取属性值</summary>
+    public async Task<Object> ReadPropertyAsync(BacnetAddress addr, BacnetObjectId oid,
+        CancellationToken cancellationToken = default)
+    {
+        var rs = await _client.ReadPropertyAsync(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return rs != null && rs.Count > 0 ? rs[0].Value : null;
+    }
+
+    /// <summary>异步读取属性值</summary>
+    public async Task<Object> ReadPropertyAsync(BacnetAddress addr, String id,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ObjectPair.TryParse(id, out var oid)) return null;
+        return await ReadPropertyAsync(addr, oid, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>异步写入属性值</summary>
+    public async Task<Boolean> WritePropertyAsync(BacnetAddress addr, BacnetObjectId oid, Object value,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var bv = new BacnetValue(value);
+            await _client.WritePropertyAsync(addr, oid, BacnetPropertyIds.PROP_PRESENT_VALUE, new[] { bv },
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log?.Debug("WritePropertyAsync failed: {0}", ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>异步写入属性值</summary>
+    public async Task<Boolean> WritePropertyAsync(BacnetAddress addr, String id, Object value,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ObjectPair.TryParse(id, out var oid)) return false;
+        return await WritePropertyAsync(addr, oid, value, cancellationToken).ConfigureAwait(false);
+    }
+    #endregion
 }

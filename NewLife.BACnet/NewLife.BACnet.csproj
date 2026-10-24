@@ -27,12 +27,13 @@
     <RepositoryUrl>https://github.com/NewLifeX/NewLife.BACnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>物联网;IoT;边缘计算;Edge;新生命团队;NewLife;PLC;BACnet;$(AssemblyName)</PackageTags>
-    <PackageReleaseNotes>新增 BACnet/SC 安全传输，支持 WebSocket+TLS 与 Hub/Node 双模式；新增 ReadPropertyAsync/WritePropertyAsync 等完整异步 API；新增基于 XML 描述的 BACnet 服务端；新增 Schedule/Calendar 日程表编解码支持；补齐事件报警、文件服务等标准服务；驱动层异步化并优化批量读取；大规模补齐单元测试</PackageReleaseNotes>
+    <PackageReleaseNotes>升级 NewLife.Core 12.0 与 NewLife.IoT 3.2，适配新版网络与消息契约；解决方案迁移为 .slnx，支持 .NET 10 工具链；CI 统一在 Ubuntu 上同时发布 GitHub Packages 与 NuGet.org，并在 tag 推送时自动创建 GitHub Release；同步 NewLife 生态版图与团队介绍，README 提供 11 种语言版本；全量单元测试通过</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.nuget.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -58,8 +59,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.Core" Version="11.19.2026.901" />
-    <PackageReference Include="NewLife.IoT" Version="3.1.2026.801" />
+    <PackageReference Include="NewLife.Core" Version="12.0.2026.1024" />
+    <PackageReference Include="NewLife.IoT" Version="3.2.2026.1024" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
@@ -71,10 +72,12 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net45' or '$(TargetFramework)' == 'net461'">
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\Doc\leaf.png" Link="leaf.png" PackagePath="\" />
+    <None Include="..\README.nuget.md" Pack="True" PackagePath="\" />
   </ItemGroup>
 
 </Project>

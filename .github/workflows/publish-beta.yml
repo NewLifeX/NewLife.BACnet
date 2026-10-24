@@ -9,9 +9,14 @@ on:
         - 'NewLife.BACnet/**'
   workflow_dispatch:
 
+# GitHub Packages 需要 packages: write
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-publish:
-
+    # net45 通过 Microsoft.NETFramework.ReferenceAssemblies 提供参考程序集，无需 Windows 专属依赖
     runs-on: ubuntu-latest
 
     steps:
@@ -20,16 +25,19 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
-          6.x
-          7.x
           8.x
-          9.x
-    - name: Restore
-      run: |
-        dotnet restore NewLife.BACnet/NewLife.BACnet.csproj
+          10.x
     - name: Build
       run: |
-        dotnet pack --no-restore --version-suffix $(date "+%Y.%m%d-beta%H%M") -c Release -o out NewLife.BACnet/NewLife.BACnet.csproj
-    - name: Publish
+        dotnet pack --version-suffix $(date "+%Y.%m%d-beta%H%M") -c Release -o out NewLife.BACnet/NewLife.BACnet.csproj
+    - name: Publish to GitHub Packages
+      continue-on-error: true
+      run: |
+        dotnet nuget remove source github >/dev/null 2>&1 || true
+        dotnet nuget add source https://nuget.pkg.github.com/NewLifeX/index.json \
+          --name github --username ${{ github.repository_owner }} \
+          --password ${{ github.token }} --store-password-in-clear-text
+        dotnet nuget push ./out/*.nupkg --skip-duplicate --source github
+    - name: Publish to NuGet.org
       run: |
         dotnet nuget push ./out/*.nupkg --skip-duplicate --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.nugetKey }}

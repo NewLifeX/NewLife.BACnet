@@ -5,6 +5,11 @@
 ![Nuget Downloads](https://img.shields.io/nuget/dt/NewLife.BACnet?logo=nuget)
 ![Nuget](https://img.shields.io/nuget/v/NewLife.BACnet?logo=nuget)
 ![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/NewLife.BACnet?label=dev%20nuget&logo=nuget)
+[![test](https://github.com/NewLifeX/NewLife.BACnet/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/NewLifeX/NewLife.BACnet/actions/workflows/test.yml)
+
+<!-- lang:start -->
+🌐 [English](README.md) | [繁體中文](README.zh-TW.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [日本語](README.ja.md) | [Français](README.fr.md) | [Português](README.pt.md) | [Русский](README.ru.md) | [한국어](README.ko.md) | [العربية](README.ar.md)
+<!-- lang:end -->
 
 > 基于 .NET 的纯托管 BACnet 协议栈，面向楼宇自动化（HVAC、照明、安防、能源管理）领域，实现完整的 BACnet/IP 协议通信，深度集成 NewLife IoT 物联网平台生态。
 
@@ -206,3 +211,7 @@ NewLife 生态按依赖分层，各项目独立版本、独立发版。下面的
 ![智能大石头](https://newlifex.com/stone.jpg)
 
 </details>
+
+## 许可证
+
+MIT 许可证 — 详见 [LICENSE](LICENSE)。
